@@ -70,7 +70,8 @@ def enter_words():
 
     for i in range(1, 25):
         word = str(input(f"Word #{i} -> "))
-        if bip39_words["words"].str.contains(word).any():
+        #if the result of a search for the word in bip39 is not empty, then add it to the word list
+        if not bip39_words[bip39_words['words'] == word].empty:
             words.append(word)
         elif word == "Exit":
             print("\nExiting and returning to main\n\n")
