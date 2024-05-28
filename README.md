@@ -3,3 +3,4 @@
 ### Directions
 
     $ pip install pandas as pd
+    $ pip install ast
