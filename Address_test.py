@@ -18,7 +18,7 @@ from mnemonic import Mnemonic
 
 
 #bip 39 wordlist
-
+bip39_words = pd.read_csv("Location of file")
 
 #exit all programs function
 def exit_function():
