@@ -69,7 +69,7 @@ def enter_words():
     words = []
 
     for i in range(1, 25):
-        word = str(input(f"Word #{i} -> "))
+        word = input(f"Word #{i + 1} -> ").strip() #strip of accidental whitespace
         #if the result of a search for the word in bip39 is not empty, then add it to the word list
         if not bip39_words[bip39_words['words'] == word].empty:
             words.append(word)
