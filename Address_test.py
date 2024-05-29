@@ -9,7 +9,6 @@
 #packages
 import pandas as pd #for opening bip39 wordlist in dataframe w/ 0 indexing
 import ast
-from mnemonic import Mnemonic
 
 #import bitcoinlib as btclib
 #import bitcoin
