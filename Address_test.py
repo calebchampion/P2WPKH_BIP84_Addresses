@@ -10,6 +10,7 @@
 import pandas as pd #for opening bip39 wordlist in dataframe w/ 0 indexing
 import ast
 from mnemonic import Mnemonic
+
 #import bitcoinlib as btclib
 #import bitcoin
 #import ecdsa
@@ -18,7 +19,8 @@ from mnemonic import Mnemonic
 
 
 #bip 39 wordlist
-bip39_words = pd.read_csv("Location of file")
+bip39_words = pd.read_csv("")
+
 
 #exit all programs function
 def exit_function():
@@ -28,13 +30,19 @@ def exit_function():
     
 #enter 256 bits private key
 def enter_256_bits():
-    binary_priv_key = int(input("\nType 0 to go back to main\nType 1 to go back\n\nEnter 256 bits -> "))
-
+    #to catch non integer values entered or a value not enetered
+    while True:
+        try:
+            entropy_bits = int(input("\nType 0 to go back to main\nType 1 to go back\n\nEnter 256 bits -> "))
+            break
+        except ValueError:
+            print("\nValues can only be integers or no value entered")
+    
     #if person wants to return to main or private key page
-    if binary_priv_key == 0:
+    if entropy_bits == 0:
         print("\nExiting and returning to main\n\n")
         return main()
-    elif binary_priv_key == 1:
+    elif entropy_bits == 1:
         print("\nGoing back\n\n")
         return private_key_selection()
         
@@ -42,8 +50,8 @@ def enter_256_bits():
     maximum = 1
     minimum = 0
     for i in range(256):
-        num = binary_priv_key % 10
-        binary_priv_key / 10
+        num = entropy_bits % 10
+        entropy_bits / 10
         if num > 1:
             maximum = num
         if num < 0:
@@ -54,25 +62,33 @@ def enter_256_bits():
         print("\nDigits in number must be 0 or 1")
         enter_256_bits()
     #checking if it has 256 digits of 1 or 0
-    if len(str(binary_priv_key)) != 256:
-        print("\n256 bit private key must be 256 digits\n")
+    if len(str(entropy_bits)) != 256:
+        print("\n256 bit private key must be 256 digits")
         enter_256_bits()
             
     #return the private key in binary format
-    return binary_priv_key
+    return entropy_bits
         
     
-   #enter 24 word seed phrase
+#enter 24 word seed phrase
 def enter_words():
     print("\nType 'Exit' any any time to exit mack to main\nType 'Back' at any time to go back to private key window\n")
     print("Enter 24 word seed phrase")
     words = []
+    
+    i = 0;
 
-    for i in range(1, 25):
+    while i < 24:
         word = input(f"Word #{i + 1} -> ").strip() #strip of accidental whitespace
+        if not word:
+            print("\nNo input detected, please enter a word")
+            continue
         #if the result of a search for the word in bip39 is not empty, then add it to the word list
-        if not bip39_words[bip39_words['words'] == word].empty:
+        if not bip39_words[bip39_words['words'] == word].empty:   
             words.append(word)
+            i += 1
+        elif not word.isalpha():
+            print("\nOnly alphabetic characters allowed")
         elif word == "Exit":
             print("\nExiting and returning to main\n\n")
             return main()
@@ -80,8 +96,8 @@ def enter_words():
             print("\nExiting and returning to private key window\n\n")
             return private_key_selection()
         else:
-            print("\nWord is not in BIP39 wordlist, try again\n")
-            i =- 1
+            print("\nWord is not in BIP39 wordlist, try again")
+            
                 
     #returns wordlist
     return words
@@ -91,22 +107,27 @@ def enter_words():
 def enter_hex():
     print("\nType Exit at any time to exit function\nType Back to go back\n")
     hexadec = input("Enter 64 digit hexidecimal value -> ")
-        
+    
+    #if not value is entered
+    if not hexadec:
+        print("\nNo input detected, please enter a word")
+        return enter_hex()
+
     #if person wants to return main or go back
-    if hexadec == "Exit" or "exit":
+    elif hexadec.lower() == "exit": #lower for upper and lowecase exits typed
         print("\nExiting function and returning to main\n\n")
         return main()
-    if hexadec == "Back" or "back":
+    elif hexadec.lower() == "back": 
         print("\nGoing back\n")
         return private_key_selection()
-        
     #error handling
-    elif len(str(hexadec)) != 64:
-        print("Hexidecimal must be 64 digits long")
+    elif len(hexadec) != 64:
+        print("\nHexidecimal must be 64 digits long")
         enter_hex()
-        
+    
     #returns hex format
-    return str(hexadec)
+    else:
+        return hexadec
     
     
 #clears and updates all private keys to nothing
@@ -149,18 +170,13 @@ def calc_priv_key(master_binary_priv, master_dec_priv, master_hexadeci_priv, wor
         master_dec_priv = calc_dec_from_bin(master_binary_priv)
         master_hexadeci_priv = calc_hex_from_dec(master_dec_priv)
         words = calc_words_from_bin(master_binary_priv)
-    #has dec
-    if master_dec_priv != None:
-        master_binary_priv = calc_bin_from_dec(master_dec_priv)
-        master_hexadeci_priv = calc_hex_from_dec(master_dec_priv)
-        words = calc_words_from_bin(master_binary_priv)
-    #has hexideci
-    if master_hexadeci_priv != None:
+    #has hexasdeci
+    elif master_hexadeci_priv != None:
         master_dec_priv = ast.literal_eval(master_hexadeci_priv)
         master_binary_priv = calc_bin_from_dec(master_dec_priv)
         words = calc_words_from_bin(master_binary_priv)
     #has words
-    if words != None:
+    elif words != None:
         master_binary_priv = calc_bin_from_words(words)
         master_dec_priv = calc_dec_from_bin(master_binary_priv)
         master_hexadeci_priv = calc_hex_from_dec(master_dec_priv)
@@ -171,33 +187,41 @@ def calc_priv_key(master_binary_priv, master_dec_priv, master_hexadeci_priv, wor
     
 #prints all results with all private key values already found
 def print_results(master_binary_priv, master_hexadeci_priv, master_dec_priv, words):
-    print("\t\tPrinting Resulting Keys\n\n")
+    print("\n\n\t\t\tPrinting Resulting Keys\n")
     print(f"Binary format: {master_binary_priv}\n")
     print("Decimal fromat:", master_dec_priv)
+    print("\nHexadecimal format:", master_hexadeci_priv)
     print("\nWords format:")
-    for i in range(24):
+    for i in range(1, 24):
         print(f" {i}.", words[i])
         
         
         
 #selection for private key execution options
 def private_key_selection():
-    print("\nSelect a private key function to execute: \n\t\t\t\t_______PRIVATE KEY WINDOW_______\n")
+    print("\n\t\t\t\t_______PRIVATE KEY WINDOW_______\n")
     print("1. Enter 256 bits to get private key results")
     print("2. Enter 24 words to get private key results")
     print("3. Enter hexadecimal to get private key results")
     print("4. Enter to clear all private keys stored")
     print("5. To go back to main menu")
     print("6. To exit all programs\n")
-    selection_main = int(input("Selection number -> "))    
     
+    #error handling
+    while True:
+        try:
+            selection_main = int(input("Selection number -> "))
+            break
+        except ValueError:
+            print("\nMust enter an integer, try again\n")
+    #selection choices & calculations with printing to follow
     if selection_main == 1:
         master_binary_priv = enter_256_bits()
         master_binary_priv, master_dec_priv, master_hexadeci_priv, words = calc_priv_key(master_binary_priv, None, None, None)
         print_results(master_binary_priv, master_hexadeci_priv, master_dec_priv, words)
     elif selection_main == 2:
         words = enter_words()
-        master_binary_priv, master_dec_priv, master_hexideci_priv, words = calc_priv_key(None, None, None, words)
+        master_binary_priv, master_dec_priv, master_hexadeci_priv, words = calc_priv_key(None, None, None, words)
         print_results(master_binary_priv, master_hexadeci_priv, master_dec_priv, words)
     elif selection_main == 3:
         master_hexadeci_priv = enter_hex()
@@ -210,14 +234,14 @@ def private_key_selection():
     elif selection_main == 6:
         exit_function()
     else:
-        print("Entry must be a number 1-6\n")
+        print("\nEntry must be a number 1-6\n")
         private_key_selection()
         
         
 #main function with initial decisions
 def main():
     while True:
-        print("Select a function to execute: \n\t\t\t\t_______MAIN WINDOW________\n")
+        print("\n\t\t\t\t_______MAIN WINDOW________\n")
         print("1. Enter functions calculating private keys")
         print("2. Enter functions calculating public keys and addresses")
         print("3. Exit program\n")
