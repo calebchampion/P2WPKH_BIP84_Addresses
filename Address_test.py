@@ -9,16 +9,16 @@
 #packages
 import pandas as pd #for opening bip39 wordlist in dataframe w/ 0 indexing
 import ast
+import hashlib
 
 #import bitcoinlib as btclib
 #import bitcoin
 #import ecdsa
 #import binascii
-#import hashlib
 
 
 #bip 39 wordlist
-bip39_words = pd.read_csv("")
+bip39_words = pd.read_csv("english.txt")
 
 
 #exit all programs function
