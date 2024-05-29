@@ -2,4 +2,5 @@
 ## Understanding bitcoin addresses in the P2WPKH form
 ### Directions
 
-    $ pip install bitcoinlib as btclib
+    $ pip install pandas as pd
+    $ pip install ast
