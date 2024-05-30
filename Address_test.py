@@ -97,11 +97,39 @@ def clear_keys():
 
 #calculate 24 seed phrase from 256 bits of entropy
 def calc_words_from_bin(entropy_256):
-    words = []
-    mnemo = Mnemonic('english')
-    binary_data_bytes = int(entropy_256, 2).to_bytes((len(entropy_256) + 7) // 8, byteorder='big')
-    words = mnemo.to_mnemonic(binary_data_bytes)
-    return words
+    words = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2]
+    
+    #checksum
+    entropy_256 = str(entropy_256)
+    input_bytes = entropy_256.encode("utf-8")
+    sha256_hash = hashlib.sha256()
+    sha256_hash.update(input_bytes)
+    hex_digest = sha256_hash.hexdigest()
+    bin_digest = ''.join(format(int(hex_char, 16), '04b') for hex_char in hex_digest)
+    checksum = bin_digest[:8]
+    
+    #converting to words
+    entropy_264 = entropy_256 + checksum #add last 8 bits to make 24th word 11 bits
+    
+    i = 24
+    while i >= 0:
+        i -= 1
+        word_bin = int(entropy_264) % 100000000
+        entropy_264 = int(entropy_264) // 1000000000
+        
+        #converting to decimal
+        word_dec = 0
+        position = 0
+        while word_bin > 0:
+            bit = word_bin % 10
+            word_dec += bit * (2 ** position)
+            word_bin //= 10
+            position += 1
+        
+        word = str(bip39_words.loc[bip39_words.index[word_dec], "words"])
+        words[i] = word
+    
+    return words, checksum
 
 #calculates entropy from 24 word seed phrase
 def calc_bin_from_words(words):
@@ -112,9 +140,10 @@ def calc_bin_from_words(words):
     
     
 #prints all results with all private key values already found
-def print_results(entropy_256, words):
+def print_results(entropy_256, checksum, words):
     print("\n\n\t\t\t\t\t\tPrinting Results...\n")
     print(f"Binary entropy: {entropy_256}\n")
+    print(f"Checksum: {checksum}\n")
     print("Seed phrase:")
     for i in range(1, 24):
         print(f" {i}.", words[i])
@@ -141,8 +170,8 @@ def private_key_selection():
     #selection choices & calculations with printing to follow
     if selection_main == 1:
         entropy_256 = enter_256_bits() #gathers binary
-        words = calc_words_from_bin(entropy_256) #calculates words
-        print_results(entropy_256, words) #prints results
+        words, checksum = calc_words_from_bin(entropy_256) #calculates words
+        print_results(entropy_256, checksum, words) #prints results
     elif selection_main == 2:
         words = enter_words() #gathers 24 word phrase
         entropy_256 = calc_bin_from_words(words) #calculates binary
