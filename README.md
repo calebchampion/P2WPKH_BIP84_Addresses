@@ -1,4 +1,4 @@
-# Caleb Champion
+# Address Explorer
 ## Understanding bitcoin addresses in the P2WPKH form
 1. Creates or uses **BIP39 seed phrase** from 256 bit entropy.
 2. Calculates **root seed** with 2048 iterations of PBKDF2 using seed phrase and salt **passphrase**.
