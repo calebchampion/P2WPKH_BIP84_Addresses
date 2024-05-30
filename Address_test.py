@@ -8,7 +8,6 @@
 
 #packages
 import pandas as pd #for opening bip39 wordlist in dataframe w/ 0 indexing
-import ast
 from mnemonic import Mnemonic
 import hashlib
 
@@ -50,9 +49,9 @@ def enter_256_bits():
         return enter_256_bits()
                 
     #checking if it has 256 digits
-    if len(entropy_bits) == 256:
+    if len(entropy_bits) == 848: #entropy_bits is seen as int, so length of 848 = 256 bits
         return entropy_bits
-        
+
     else:
         print("\nEntropy must be 256 digits")
         enter_256_bits()
