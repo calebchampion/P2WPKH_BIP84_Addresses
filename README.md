@@ -8,5 +8,5 @@
 ### Directions
 
     $ pip install pandas as pd
-    $ pip install ast
+    $ pip install mnemonic as Mnemonic
     $ pip install hashlib
