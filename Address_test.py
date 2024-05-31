@@ -97,11 +97,11 @@ def clear_keys():
 
 #calculate 24 seed phrase from 256 bits of entropy
 def calc_words_from_bin(entropy_256):
-    words = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2]
+    words = [0] * 24
     
     #checksum
-    entropy_256 = str(entropy_256)
-    input_bytes = entropy_256.encode("utf-8")
+    entropy = str(entropy_256)
+    input_bytes = entropy.encode("utf-8")
     sha256_hash = hashlib.sha256()
     sha256_hash.update(input_bytes)
     hex_digest = sha256_hash.hexdigest()
@@ -109,28 +109,23 @@ def calc_words_from_bin(entropy_256):
     checksum = bin_digest[:8]
     
     #converting to words
-    entropy_264 = entropy_256 + checksum #add last 8 bits to make 24th word 11 bits
+    entropy_264 = int(str(entropy_256) + checksum) #add last 8 bits to make 24th word 11 bits
     
     i = 24
-    while i >= 0:
+    while i > 0:
         i -= 1
-        word_bin = int(entropy_264) % 100000000
-        entropy_264 = int(entropy_264) // 1000000000
+        word_bin = entropy_264 % 100000000
+        entropy_264 = entropy_264 // 100000000
         
         #converting to decimal
-        word_dec = 0
-        position = 0
-        while word_bin > 0:
-            bit = word_bin % 10
-            word_dec += bit * (2 ** position)
-            word_bin //= 10
-            position += 1
+        word_bin = str(word_bin)
+        word_dec = int(word_bin, 2)
         
         word = str(bip39_words.loc[bip39_words.index[word_dec], "words"])
         words[i] = word
     
     return words, checksum
-
+    
 #calculates entropy from 24 word seed phrase
 def calc_bin_from_words(words):
     mnemo = Mnemonic('english')
