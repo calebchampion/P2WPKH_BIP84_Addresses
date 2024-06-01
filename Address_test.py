@@ -8,16 +8,16 @@
 
 #packages
 import pandas as pd #for opening bip39 wordlist in dataframe w/ 0 indexing
-from mnemonic import Mnemonic
-import hashlib
+import hashlib # for sha256 hashes
+import ecdsa
 
 #import bitcoinlib as btclib
 #import bitcoin
-#import ecdsa
 #import binascii
 
 #bip 39 wordlist
 bip39_words = pd.read_csv("english.txt")
+
 
 #exit all programs function
 def exit_function():
@@ -114,14 +114,12 @@ def calc_words_from_bin(entropy_256):
         word = str(bip39_words.loc[bip39_words.index[word_dec], "words"])
         words[i] = word
         
-    
-    return entropy_256, checksum
+    return words, checksum
     
 def calc_bin_from_words(words):
-    i = 24
-    while i > 0:
-        i -= 1
-
+    indices = bip39_words[bip39_words['words'].isin(words)].index
+    print(indices)
+            
 
 #prints all results with all private key values already found
 def print_results(entropy_256, checksum, words):
@@ -129,9 +127,10 @@ def print_results(entropy_256, checksum, words):
     print(f"Binary entropy: {entropy_256}\n")
     print(f"Checksum: {checksum}\n")
     print("Seed phrase:")
-    for i in range(1, 24):
-        print(i, ".)", words[i - 1])
-        
+    i = 1
+    for item in words:
+        print(f"{i}).", item)
+        i += 1
         
         
 #selection for private key execution options
