@@ -17,7 +17,10 @@ import ecdsa
 
 #bip 39 wordlist
 bip39_words = pd.read_csv("english.txt")
+bip39_words['index'] = range(len(bip39_words))
 
+#PBKDF2_Rounds constant
+PBKDF2_ROUNDS = 2048
 
 #exit all programs function
 def exit_function():
@@ -96,11 +99,12 @@ def calc_words_from_bin(entropy_256):
     sha256_hash.update(input_bytes)
     hex_digest = sha256_hash.hexdigest()
     bin_digest = ''.join(format(int(hex_char, 16), '04b') for hex_char in hex_digest)
-    checksum = bin_digest[:8]
+    checksum = bin_digest[248:] #last 8 bits of hash
     
+    entropy_264 = str(str(entropy_256) + checksum)
+    entropy_264 = int(entropy_264)
+
     #converting to words
-    entropy_264 = int(str(entropy_256) + checksum) #add last 8 bits to make 24th word 11 bits
-    
     i = 24
     while i > 0:
         i -= 1
@@ -117,12 +121,22 @@ def calc_words_from_bin(entropy_256):
     return words, checksum
     
 def calc_bin_from_words(words):
-    indices = bip39_words[bip39_words['words'].isin(words)].index
-    print(indices)
-            
-
+    entropy_264 = str()
+    #getting every words indice then finding binary from it
+    for word in words:
+        word_dec = int(bip39_words[bip39_words['words'] == word]['index'].values[0]) 
+        word_bin = format(word_dec, '011b') #turn to 11 bit binary format
+        word_bin = str(word_bin)
+        entropy_264 += word_bin
+    
+    #finding 256 & checksum individually
+    checksum = entropy_264[256:]
+    entropy_256 = entropy_264[:256]
+    
+    return entropy_256, checksum
+    
 #prints all results with all private key values already found
-def print_results(entropy_256, checksum, words):
+def print_priv_results(entropy_256, checksum, words):
     print("\n\n\t\t\t\t\t\tPrinting Results...\n")
     print(f"Binary entropy: {entropy_256}\n")
     print(f"Checksum: {checksum}\n")
@@ -154,11 +168,11 @@ def private_key_selection():
     if selection_main == 1:
         entropy_256 = enter_256_bits() #gathers binary
         words, checksum = calc_words_from_bin(entropy_256) #calculates words
-        print_results(entropy_256, checksum, words) #prints results
+        print_priv_results(entropy_256, checksum, words) #prints results
     elif selection_main == 2:
         words = enter_words() #gathers 24 word phrase
         entropy_256, checksum = calc_bin_from_words(words) #calculates binary
-        print_results(entropy_256, words) #prints results
+        print_priv_results(entropy_256, checksum, words) #prints results
     elif selection_main == 3:
         entropy_256, checksum, words = clear_keys()
     elif selection_main == 4:
