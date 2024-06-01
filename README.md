@@ -8,5 +8,5 @@
 ### Directions
 
     $ pip install pandas as pd
-    $ pip install mnemonic as Mnemonic
     $ pip install hashlib
+    $ pip install ecdsa
