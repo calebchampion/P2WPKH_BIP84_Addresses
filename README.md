@@ -1,5 +1,4 @@
 # Address Explorer
-Need to download "english" file as it is the bip39 wordlist used for conversion.  Just change "english" to the file path and name.
 ## Understanding bitcoin addresses in the P2WPKH form
 1. Creates or uses **BIP39 seed phrase** from 256 bit entropy.
 2. Calculates **root seed** with 2048 iterations of PBKDF2 using seed phrase and salt **passphrase**.
@@ -7,6 +6,7 @@ Need to download "english" file as it is the bip39 wordlist used for conversion.
 4. Used the **parent private key** and ECDSA to solve for the (compressed) **public key**, then adding that with the chain code to calculate the **parent extended public key(master extended public key)**.
 
 ### Directions
+- Need to download "english" file as it is the bip39 wordlist used for conversion.  Just change "english" to the file path and name.
 
     $ pip install pandas as pd
     $ pip install mnemonic as Mnemonic
