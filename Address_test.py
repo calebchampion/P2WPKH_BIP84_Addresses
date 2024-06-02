@@ -32,7 +32,7 @@ def enter_256_bits():
     #to catch non integer values entered or a value not enetered
     while True:
         try:
-            entropy_bits = int(input("\nType 0 to go back to main\nType 1 to go back\n\nEnter 256 bits -> "))
+            entropy_bits = str(input("\nType 0 to go back to main\nType 1 to go back\n\nEnter 256 bits -> "))
             break
         except ValueError:
             print("\nValues can only be integers or no value entered")
@@ -46,7 +46,7 @@ def enter_256_bits():
         return private_key_selection()
     
 
-    return entropy_bits
+    return str(entropy_bits)
             
 #enter 24 word seed phrase
 def enter_words():
@@ -93,17 +93,19 @@ def calc_words_from_bin(entropy_256):
     words = [0] * 24
     
     #checksum
-    entropy = str(entropy_256)
-    input_bytes = entropy.encode("utf-8")
+    input_bytes = entropy_256.encode("utf-8")
     sha256_hash = hashlib.sha256()
     sha256_hash.update(input_bytes)
     hex_digest = sha256_hash.hexdigest()
     bin_digest = ''.join(format(int(hex_char, 16), '04b') for hex_char in hex_digest)
-    checksum = bin_digest[248:] #last 8 bits of hash
+    checksum = bin_digest[:8] #last 8 bits of hash
+    entropy_264 = str(str(entropy_256) + checksum) #full 264 bits for 24 words
     
-    entropy_264 = str(str(entropy_256) + checksum)
+    #last 24 bits for 24th word
+    checksum_bin = entropy_264[253:]
+    #turn to int so its workable with % & //
     entropy_264 = int(entropy_264)
-
+    
     #converting to words
     i = 24
     while i > 0:
@@ -118,10 +120,16 @@ def calc_words_from_bin(entropy_256):
         word = str(bip39_words.loc[bip39_words.index[word_dec], "words"])
         words[i] = word
         
+    #append checksum word
+    checksum_dec = int(checksum_bin, 2)
+    checksum_word = str(bip39_words.loc[bip39_words.index[checksum_dec], "words"])
+    words[23] = checksum_word
+    
     return words, checksum
     
 def calc_bin_from_words(words):
     entropy_264 = str()
+    
     #getting every words indice then finding binary from it
     for word in words:
         word_dec = int(bip39_words[bip39_words['words'] == word]['index'].values[0]) 
@@ -143,7 +151,7 @@ def print_priv_results(entropy_256, checksum, words):
     print("Seed phrase:")
     i = 1
     for item in words:
-        print(f"{i}).", item)
+        print(f"{i}.)", item)
         i += 1
         
         
@@ -204,5 +212,5 @@ def main():
             main()
             
             
-#runnign main function
+#runnimg main function
 main()
