@@ -10,4 +10,5 @@ Need to download "english" file as it is the bip39 wordlist used for conversion.
 
     $ pip install pandas as pd
     $ pip install hashlib
+    $ pip install binascii
     $ pip install ecdsa
