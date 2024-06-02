@@ -8,16 +8,19 @@
 
 #packages
 import pandas as pd #for opening bip39 wordlist in dataframe w/ 0 indexing
-from mnemonic import Mnemonic
-import hashlib
+import hashlib # for sha256 hashes
+import ecdsa
 
 #import bitcoinlib as btclib
 #import bitcoin
-#import ecdsa
 #import binascii
 
 #bip 39 wordlist
 bip39_words = pd.read_csv("english.txt")
+bip39_words['index'] = range(len(bip39_words))
+
+#PBKDF2_Rounds constant
+PBKDF2_ROUNDS = 2048
 
 #exit all programs function
 def exit_function():
@@ -29,7 +32,7 @@ def enter_256_bits():
     #to catch non integer values entered or a value not enetered
     while True:
         try:
-            entropy_bits = int(input("\nType 0 to go back to main\nType 1 to go back\n\nEnter 256 bits -> "))
+            entropy_bits = str(input("\nType 0 to go back to main\nType 1 to go back\n\nEnter 256 bits -> "))
             break
         except ValueError:
             print("\nValues can only be integers or no value entered")
@@ -41,20 +44,9 @@ def enter_256_bits():
     elif entropy_bits == 1:
         print("\nGoing back\n\n")
         return private_key_selection()
-        
-    #error handing
-    entropy_bits = bin(entropy_bits)[2:]
-    if not all(char in '01' for char in entropy_bits):
-        print("\nDigits in number must be 0 or 1")
-        return enter_256_bits()
-                
-    #checking if it has 256 digits
-    if len(entropy_bits) == 848: #entropy_bits is seen as int, so length of 848 = 256 bits
-        return entropy_bits
+    
 
-    else:
-        print("\nEntropy must be 256 digits")
-        enter_256_bits()
+    return str(entropy_bits)
             
 #enter 24 word seed phrase
 def enter_words():
@@ -92,33 +84,75 @@ def enter_words():
 def clear_keys():
     entropy_256 = None
     words = None
+    checksum = None
     
-    return entropy_256, words
+    return entropy_256, words, checksum
 
 #calculate 24 seed phrase from 256 bits of entropy
 def calc_words_from_bin(entropy_256):
-    words = []
-    mnemo = Mnemonic('english')
-    binary_data_bytes = int(entropy_256, 2).to_bytes((len(entropy_256) + 7) // 8, byteorder='big')
-    words = mnemo.to_mnemonic(binary_data_bytes)
-    return words
-
-#calculates entropy from 24 word seed phrase
-def calc_bin_from_words(words):
-    mnemo = Mnemonic('english')
-    entropy = mnemo.to_entropy(words)
-    entropy_256 = ''.join(f'{byte:08b}' for byte in entropy)
-    return entropy_256
+    words = [0] * 24
     
+    #checksum
+    input_bytes = entropy_256.encode("utf-8")
+    sha256_hash = hashlib.sha256()
+    sha256_hash.update(input_bytes)
+    hex_digest = sha256_hash.hexdigest()
+    bin_digest = ''.join(format(int(hex_char, 16), '04b') for hex_char in hex_digest)
+    checksum = bin_digest[:8] #last 8 bits of hash
+    entropy_264 = str(str(entropy_256) + checksum) #full 264 bits for 24 words
+    
+    #last 24 bits for 24th word
+    checksum_bin = entropy_264[253:]
+    #turn to int so its workable with % & //
+    entropy_264 = int(entropy_264)
+    
+    #converting to words
+    i = 24
+    while i > 0:
+        i -= 1
+        word_bin = entropy_264 % 100000000000
+        entropy_264 = entropy_264 // 100000000000
+        
+        #converting to decimal
+        word_bin = str(word_bin)
+        word_dec = int(word_bin, 2)
+        
+        word = str(bip39_words.loc[bip39_words.index[word_dec], "words"])
+        words[i] = word
+        
+    #append checksum word
+    checksum_dec = int(checksum_bin, 2)
+    checksum_word = str(bip39_words.loc[bip39_words.index[checksum_dec], "words"])
+    words[23] = checksum_word
+    
+    return words, checksum
+    
+def calc_bin_from_words(words):
+    entropy_264 = str()
+    
+    #getting every words indice then finding binary from it
+    for word in words:
+        word_dec = int(bip39_words[bip39_words['words'] == word]['index'].values[0]) 
+        word_bin = format(word_dec, '011b') #turn to 11 bit binary format
+        word_bin = str(word_bin)
+        entropy_264 += word_bin
+    
+    #finding 256 & checksum individually
+    checksum = entropy_264[256:]
+    entropy_256 = entropy_264[:256]
+    
+    return entropy_256, checksum
     
 #prints all results with all private key values already found
-def print_results(entropy_256, words):
+def print_priv_results(entropy_256, checksum, words):
     print("\n\n\t\t\t\t\t\tPrinting Results...\n")
     print(f"Binary entropy: {entropy_256}\n")
+    print(f"Checksum: {checksum}\n")
     print("Seed phrase:")
-    for i in range(1, 24):
-        print(f" {i}.", words[i])
-        
+    i = 1
+    for item in words:
+        print(f"{i}.)", item)
+        i += 1
         
         
 #selection for private key execution options
@@ -141,14 +175,14 @@ def private_key_selection():
     #selection choices & calculations with printing to follow
     if selection_main == 1:
         entropy_256 = enter_256_bits() #gathers binary
-        words = calc_words_from_bin(entropy_256) #calculates words
-        print_results(entropy_256, words) #prints results
+        words, checksum = calc_words_from_bin(entropy_256) #calculates words
+        print_priv_results(entropy_256, checksum, words) #prints results
     elif selection_main == 2:
         words = enter_words() #gathers 24 word phrase
-        entropy_256 = calc_bin_from_words(words) #calculates binary
-        print_results(entropy_256, words) #prints results
+        entropy_256, checksum = calc_bin_from_words(words) #calculates binary
+        print_priv_results(entropy_256, checksum, words) #prints results
     elif selection_main == 3:
-        entropy_256, words = clear_keys()
+        entropy_256, checksum, words = clear_keys()
     elif selection_main == 4:
         return main()
     elif selection_main == 5:
