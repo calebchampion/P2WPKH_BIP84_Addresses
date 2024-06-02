@@ -1,20 +1,18 @@
 # -*- coding: utf-8 -*-
+'''
+Caleb Champion May 2024
 
-#Caleb Champion May 2024
-#CLI to find addresses, public keys, and private keys from a variety of private key options
-#Specifially the address type P2WPKH format
-#ONLY works with 24 word phrases
-
+CLI to find addresses, public keys, and private keys from a variety of private key options
+Specifially the address type P2WPKH format
+ONLY works with 24 word phrases
+Expiremental ONLY, do not actually use for real money
+'''
 
 #packages
 import pandas as pd #for opening bip39 wordlist in dataframe w/ 0 indexing
-import hashlib # for sha256 hashes
-import binascii
+import hashlib #for sha256 hashes
+import binascii #for converting 
 import ecdsa
-
-#import bitcoinlib as btclib
-#import bitcoin
-#import binascii
 
 #bip 39 wordlist
 bip39_words = pd.read_csv("english.txt")
@@ -22,6 +20,7 @@ bip39_words['index'] = range(len(bip39_words))
 
 #PBKDF2_Rounds constant
 PBKDF2_ROUNDS = 2048
+
 
 #exit all programs function
 def exit_function():
@@ -39,10 +38,10 @@ def enter_256_bits():
             print("\nValues can only be integers or no value entered")
     
     #if person wants to return to main or private key page
-    if entropy_bits == 0:
+    if entropy_bits == '0':
         print("\nExiting and returning to main\n\n")
         return main()
-    elif entropy_bits == 1:
+    elif entropy_bits == '1':
         print("\nGoing back\n\n")
         return private_key_selection()
     
@@ -86,6 +85,7 @@ def clear_keys():
     entropy_256 = None
     words = None
     checksum = None
+    print("\nCleared all private keys...")
     
     return entropy_256, words, checksum
 
@@ -134,6 +134,9 @@ def calc_words_from_bin(entropy_256):
     checksum_word = str(bip39_words.loc[bip39_words.index[checksum_dec], "words"])
     words[23] = checksum_word
     
+    if TypeError: #pesky typeerror when already finished running, might fix later 
+        None
+    
     return words, checksum
     
 def calc_bin_from_words(words):
@@ -154,6 +157,9 @@ def calc_bin_from_words(words):
     
 #prints all results with all private key values already found
 def print_priv_results(entropy_256, checksum, words):
+    if entropy_256 == None or entropy_256 == '':
+        print("\nYou must enter private keys first")
+        return private_key_selection()
     print("\n\n\t\t\t\t\t\tPrinting Results...\n")
     print(f"Binary entropy: {entropy_256}\n")
     print(f"Checksum: {checksum}\n")
@@ -166,13 +172,16 @@ def print_priv_results(entropy_256, checksum, words):
         
 #selection for private key execution options
 def private_key_selection():
+    global entropy_256, checksum, words
+    
     print("\n\t\t\t\t_______PRIVATE KEY WINDOW_______\n")
     print("To create or recover wallet, enter entropy in binary or enter seed phrase")
     print("1. Enter 256 bits of entropy")
     print("2. Enter 24 words seed phrase")
-    print("3. Enter to clear all private keys stored")
-    print("4. To go back to main menu")
-    print("5. To exit all programs\n")
+    print("3. To print all private keys")
+    print("4. Enter to clear all private keys stored")
+    print("5. To go back to main menu")
+    print("6. To exit all programs\n")
     
     #error handling
     while True:
@@ -191,29 +200,36 @@ def private_key_selection():
         entropy_256, checksum = calc_bin_from_words(words) #calculates binary
         print_priv_results(entropy_256, checksum, words) #prints results
     elif selection_main == 3:
-        entropy_256, checksum, words = clear_keys()
+        print_priv_results(entropy_256, checksum, words)
     elif selection_main == 4:
-        return main()
+        entropy_256, checksum, words = clear_keys()
     elif selection_main == 5:
+        return main()
+    elif selection_main == 6:
         exit_function()
     else:
         print("\nEntry must be a number 1-5\n")
         private_key_selection()
         
+def public_key_selection():
+    print("\n\t\t\t\t_______PUBLIC KEY WINDOW_______\n")
+    if entropy_256 == '':
+        print("You must enter private keys first")
+        return private_key_selection()
         
 #main function with initial decisions
 def main():
     while True:
         print("\n\t\t\t\t_______MAIN WINDOW________\n")
-        print("1. Enter functions calculating private keys")
-        print("2. Enter functions calculating public keys and addresses")
+        print("1. Enter functions to calculate & view private keys")
+        print("2. Enter to view public keys and addresses")
         print("3. Exit program\n")
         main_selection = input("Selection number -> ")
         
         if main_selection == "1":
             private_key_selection()
-        #elif main_selection == "2":
-        #    public_key_selection()
+        elif main_selection == "2":
+            public_key_selection()
         elif main_selection == "3":
             exit_function()
         else:
