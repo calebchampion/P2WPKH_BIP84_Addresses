@@ -6,6 +6,7 @@
 4. Used the **parent private key** and ECDSA to solve for the (compressed) **public key**, then adding that with the chain code to calculate the **parent extended public key(master extended public key)**.
 
 ### Directions
+Need to download "english" file as it is the bip39 wordlist used for conversion.  Just change "english" to the file path and name.
 
     $ pip install pandas as pd
     $ pip install hashlib
