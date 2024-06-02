@@ -9,6 +9,7 @@
 #packages
 import pandas as pd #for opening bip39 wordlist in dataframe w/ 0 indexing
 import hashlib # for sha256 hashes
+import binascii
 import ecdsa
 
 #import bitcoinlib as btclib
@@ -32,7 +33,7 @@ def enter_256_bits():
     #to catch non integer values entered or a value not enetered
     while True:
         try:
-            entropy_bits = str(input("\nType 0 to go back to main\nType 1 to go back\n\nEnter 256 bits -> "))
+            entropy_bits = str(input("\nType 0 to go back to main\nType 1 to go back\n\nDo not include spaces\nEnter 256 bits -> "))
             break
         except ValueError:
             print("\nValues can only be integers or no value entered")
@@ -91,18 +92,26 @@ def clear_keys():
 #calculate 24 seed phrase from 256 bits of entropy
 def calc_words_from_bin(entropy_256):
     words = [0] * 24
-    
+  
     #checksum
-    input_bytes = entropy_256.encode("utf-8")
-    sha256_hash = hashlib.sha256()
-    sha256_hash.update(input_bytes)
-    hex_digest = sha256_hash.hexdigest()
-    bin_digest = ''.join(format(int(hex_char, 16), '04b') for hex_char in hex_digest)
-    checksum = bin_digest[:8] #last 8 bits of hash
-    entropy_264 = str(str(entropy_256) + checksum) #full 264 bits for 24 words
+    hexstr = "{0:0>4X}".format(int(entropy_256, 2))
+    data = binascii.a2b_hex(hexstr) #hexadecimal to binary data
+    hash_hex = hashlib.sha256(data).hexdigest() # SHA-256 hashing
+    hash_bin = bin(int(hash_hex, 16))[2:] #convert the hexadecimal hash to binary
+
+    #Ensure the binary string matches the original length
+    #SHA-256 produces a 256-bit (32-byte) hash, so it needs to be trimmed to the length of entropy_256
+    bin_digest = hash_bin.zfill(len(entropy_256))[:len(entropy_256)]
+    
+    #resulting checksum
+    checksum = bin_digest[:8] #first 8 bits of hash
+    
+    #full 264 bits for 24 words
+    entropy_264 = str(str(entropy_256) + checksum)
     
     #last 24 bits for 24th word
     checksum_bin = entropy_264[253:]
+    
     #turn to int so its workable with % & //
     entropy_264 = int(entropy_264)
     
@@ -212,5 +221,5 @@ def main():
             main()
             
             
-#runnign main function
+#runnimg main function
 main()
