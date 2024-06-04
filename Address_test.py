@@ -11,15 +11,13 @@ Expiremental ONLY, do not actually use for real money
 #packages
 import pandas as pd #for opening bip39 wordlist in dataframe w/ 0 indexing
 import hashlib #for sha256 hashes
-import binascii #for converting 
-import ecdsa
+import hmac #for HMAC hash of root_seed -> ext priv key
+import binascii #for converting
+import ecdsa #elliptic curve cryptography package
 
 #bip 39 wordlist
 bip39_words = pd.read_csv("english.txt")
 bip39_words['index'] = range(len(bip39_words))
-
-#PBKDF2_Rounds constant
-PBKDF2_ROUNDS = 2048
 
 
 #exit all programs function
@@ -45,13 +43,15 @@ def enter_256_bits():
         print("\nGoing back\n\n")
         return private_key_selection()
     
+    #adding a passphrase, in PBKDF2 use 'None' to calculate without a phrase later
+    passphrase = str(input("\nAdd a passphrase?\nType 'None' if you don't want a passphrase -> "))
 
-    return str(entropy_bits)
+    return str(entropy_bits), passphrase
             
-#enter 24 word seed phrase
+#enter 24 word root_seed phrase
 def enter_words():
     print("\nType 'Exit' any any time to exit mack to main\nType 'Back' at any time to go back to private key window\n")
-    print("Enter 24 word seed phrase")
+    print("Enter 24 word root_seed phrase")
     words = []
     
     i = 0;
@@ -75,21 +75,24 @@ def enter_words():
             return private_key_selection()
         else:
             print("\nWord is not in BIP39 wordlist, try again")
-            
+    
+    
+    #adding a passphrase, in PBKDF2 use 'None' to calculate without a phrase later
+    passphrase = str(input("\nAdd a passphrase?\nType 'None' if you don't want a passphrase -> "))
                 
     #returns wordlist
-    return words
+    return words, passphrase
     
 #clears and updates all private keys to nothing
 def clear_keys():
     entropy_256 = None
     words = None
     checksum = None
-    print("\nCleared all private keys...")
+    print("\nClearing all private keys...")
     
     return entropy_256, words, checksum
 
-#calculate 24 seed phrase from 256 bits of entropy
+#calculate 24 root_seed phrase from 256 bits of entropy
 def calc_words_from_bin(entropy_256):
     words = [0] * 24
   
@@ -134,11 +137,12 @@ def calc_words_from_bin(entropy_256):
     checksum_word = str(bip39_words.loc[bip39_words.index[checksum_dec], "words"])
     words[23] = checksum_word
     
-    if TypeError: #pesky typeerror when already finished running, might fix later 
+    if TypeError: #pesky typeerror when already finished running, might actually fix later 
         None
     
     return words, checksum
-    
+   
+#calculates the 256 bit binary and checksum from the 24 words 
 def calc_bin_from_words(words):
     entropy_264 = str()
     
@@ -154,20 +158,53 @@ def calc_bin_from_words(words):
     entropy_256 = entropy_264[:256]
     
     return entropy_256, checksum
+
+#calculates the root_seed
+def PBKDF2(words, passphrase):
+    iterations = 2048
+    length = 64
+    
+    
+    if passphrase == "None": #without passphrase
+        salt = "mnemonic"
+        words_string = " ".join(words)
+        words_bytes = words_string.encode("utf-8")
+        salt_bytes = salt.encode("utf-8")
+        root_seed = hashlib.pbkdf2_hmac("sha512", words_bytes, salt_bytes, iterations, length).hex()
+    else: #with passphrase
+        salt = "mnemonic" + passphrase #add mnumonic to the salt
+        words_string = " ".join(words)
+        words_bytes = words_string.encode("utf-8")
+        salt_bytes = salt.encode("utf-8")
+        root_seed = hashlib.pbkdf2_hmac("sha512", words_bytes, salt_bytes, iterations, length).hex()
+        
+    return root_seed
+    
+#calculates the extended private key by hashing HMAC with the root_seed and message "Bitcoin seed"
+def HMAC_master_priv(root_seed):
+    message = "Bitcoin seed"
+    key = root_seed
+    key_bytes = key.encode('utf-8')
+    message_bytes = message.encode('utf-8')
+    hmac_obj = hmac.new(key_bytes, message_bytes, hashlib.sha512)
+    ext_priv_key = hmac_obj.hexdigest()
+    
+    return ext_priv_key
     
 #prints all results with all private key values already found
-def print_priv_results(entropy_256, checksum, words):
-    if entropy_256 == None or entropy_256 == '':
-        print("\nYou must enter private keys first")
-        return private_key_selection()
+def print_priv_results(entropy_256, checksum, words, root_seed, ext_priv_key):
     print("\n\n\t\t\t\t\t\tPrinting Results...\n")
     print(f"Binary entropy: {entropy_256}\n")
     print(f"Checksum: {checksum}\n")
-    print("Seed phrase:")
+    print("root_seed phrase:")
     i = 1
     for item in words:
         print(f"{i}.)", item)
         i += 1
+    print(f"\nMaster root_seed: {root_seed}")
+    print(f"\nExtended Private Key(master): {ext_priv_key}")
+    print(f"\nPrivate Key: {ext_priv_key[:64]}")
+    print(f"\nChain Code: {ext_priv_key[64:]}")
         
         
 #selection for private key execution options
@@ -175,9 +212,9 @@ def private_key_selection():
     global entropy_256, checksum, words
     
     print("\n\t\t\t\t_______PRIVATE KEY WINDOW_______\n")
-    print("To create or recover wallet, enter entropy in binary or enter seed phrase")
+    print("To create or recover wallet, enter entropy in binary or enter root_seed phrase")
     print("1. Enter 256 bits of entropy")
-    print("2. Enter 24 words seed phrase")
+    print("2. Enter 24 words root_seed phrase")
     print("3. To print all private keys")
     print("4. Enter to clear all private keys stored")
     print("5. To go back to main menu")
@@ -192,15 +229,22 @@ def private_key_selection():
             print("\nMust enter an integer, try again\n")
     #selection choices & calculations with printing to follow
     if selection_main == 1:
-        entropy_256 = enter_256_bits() #gathers binary
+        entropy_256, passphrase = enter_256_bits() #gathers binary
         words, checksum = calc_words_from_bin(entropy_256) #calculates words
-        print_priv_results(entropy_256, checksum, words) #prints results
+        root_seed = PBKDF2(words, passphrase)
+        ext_priv_key = HMAC_master_priv(root_seed)
+        print_priv_results(entropy_256, checksum, words, root_seed, ext_priv_key) #prints results
     elif selection_main == 2:
-        words = enter_words() #gathers 24 word phrase
+        words, passphrase = enter_words() #gathers 24 word phrase
         entropy_256, checksum = calc_bin_from_words(words) #calculates binary
-        print_priv_results(entropy_256, checksum, words) #prints results
+        root_seed = PBKDF2(words, passphrase)
+        ext_priv_key = HMAC_master_priv(root_seed)
+        print_priv_results(entropy_256, checksum, words, root_seed, ext_priv_key) #prints results
     elif selection_main == 3:
-        print_priv_results(entropy_256, checksum, words)
+        try:    
+            print_priv_results(entropy_256, checksum, words, root_seed, ext_priv_key)
+        except NameError: #none of the values are supplied
+            print("\nYou must enter private keys first\n")
     elif selection_main == 4:
         entropy_256, checksum, words = clear_keys()
     elif selection_main == 5:
@@ -220,8 +264,9 @@ def public_key_selection():
 #main function with initial decisions
 def main():
     while True:
-        print("\n\t\t\t\t_______MAIN WINDOW________\n")
-        print("1. Enter functions to calculate & view private keys")
+        print("\n\t\t\t\t_______MAIN WINDOW________")
+        print("Enter a private key first\n")
+        print("1. Enter & view private keys")
         print("2. Enter to view public keys and addresses")
         print("3. Exit program\n")
         main_selection = input("Selection number -> ")
