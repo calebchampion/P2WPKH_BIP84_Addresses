@@ -198,7 +198,7 @@ def ext_master_priv(root_seed):
     #derive master private key
     ext_priv_key = hmac_sha512(key, data)
 
-    return ext_priv_key.hex()    
+    return ext_priv_key.hex()
 
 
 #prints all results with all private key values already found
@@ -292,20 +292,20 @@ def ext_master_pub(ext_priv_key):
     public_key_hex = public_key.to_string().hex() #pub key
     
     #uncompressed is always prefixed w/ '04', compressed is '02' if even & '03' odd
-    uncompress_ext_pub_key = "04" + public_key_hex + ext_priv_key[64:] #uncompressed version 
+    uncompress_pub_key = "04" + public_key_hex #uncompressed version 
     
     if y % 2 == 0: #even
-        compress_ext_pub_key = "02" + uncompress_ext_pub_key[2:66] #compressed version (just x coord needed)
+        compress_pub_key = "02" + uncompress_pub_key[2:66] #compressed version (just x coord needed)
     elif y % 2 != 0: #odd
-        compress_ext_pub_key = "03" + uncompress_ext_pub_key[2:66]
+        compress_pub_key = "03" + uncompress_pub_key[2:66]
         
-    return uncompress_ext_pub_key, compress_ext_pub_key, x, y
+    return uncompress_pub_key, compress_pub_key, x, y
 
 #print the public key results
-def public_key_results(uncompress_ext_pub_key, compress_ext_pub_key, x, y):
+def public_key_results(uncompress_pub_key, compress_pub_key, x, y):
     print("\n\n\t\t\t\t\t\tPrinting Results...\n")
-    print(f"Extended public key (uncompressed): {uncompress_ext_pub_key}")
-    print(f"\nExtended public key (compressed): {compress_ext_pub_key}")
+    print(f"Master public key (uncompressed): {uncompress_pub_key}")
+    print(f"\nMaster public key (compressed): {compress_pub_key}")
     print(f"\nCoordinates = x: {x}\n\t\t\t  y: {y}")
 
 #public key selection window
@@ -316,10 +316,10 @@ def public_key_calculation():
         return private_key_selection()
     
     #calculating all results
-    uncompress_ext_pub_key, compress_ext_pub_key, x, y = ext_master_pub(ext_priv_key)
+    uncompress_pub_key, compress_pub_key, x, y = ext_master_pub(ext_priv_key)
     
     #printing all results
-    public_key_results(uncompress_ext_pub_key, compress_ext_pub_key, x, y)
+    public_key_results(uncompress_pub_key, compress_pub_key, x, y)
     
     
     
@@ -345,7 +345,6 @@ def main():
         else:
             print("\nSelection needs to be a 1, 2, or 3\n\n")
             main()
-            
             
 #runnimg main function
 main()
