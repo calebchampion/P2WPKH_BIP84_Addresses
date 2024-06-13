@@ -302,14 +302,17 @@ def ext_master_pub(ext_priv_key):
     return uncompress_pub_key, compress_pub_key, x, y
 
 #print the public key results
-def public_key_results(uncompress_pub_key, compress_pub_key, x, y):
+def public_key_results(uncompress_pub_key, compress_pub_key, x, y, ext_public_key):
     print("\n\n\t\t\t\t\t\tPrinting Results...\n")
     print(f"Master public key (uncompressed): {uncompress_pub_key}")
     print(f"\nMaster public key (compressed): {compress_pub_key}")
+    print(f"\nExtended public key: {ext_public_key}")
     print(f"\nCoordinates = x: {x}\n\t\t\t  y: {y}")
 
 #public key selection window
 def public_key_calculation():
+    global ext_public_key
+    
     print("\n\t\t\t\t_______PUBLIC KEY WINDOW_______\n")
     if entropy_256 == '':
         print("You must enter private keys first")
@@ -317,10 +320,10 @@ def public_key_calculation():
     
     #calculating all results
     uncompress_pub_key, compress_pub_key, x, y = ext_master_pub(ext_priv_key)
+    ext_public_key = compress_pub_key + ext_priv_key[64:]
     
     #printing all results
-    public_key_results(uncompress_pub_key, compress_pub_key, x, y)
-    
+    public_key_results(uncompress_pub_key, compress_pub_key, x, y, ext_public_key)
     
     
 #main function with initial decisions
