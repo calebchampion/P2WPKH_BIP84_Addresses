@@ -11,8 +11,10 @@
 ### Directions
 Need to download "english" file as it is the bip39 wordlist used for conversion.  Just change "english" to the file path and name.
 
+Some packages are already included in pip if download is recent enough.
     $ pip install pandas as pd
     $ pip install hashlib
     $ pip install hmac
     $ pip install binascii
     $ pip install ecdsa
+    $ pip install Base58
