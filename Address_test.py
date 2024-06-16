@@ -14,6 +14,7 @@ import hashlib #for sha256 hashes
 import hmac #for HMAC hash of root_seed -> ext priv key
 import binascii #for converting
 from ecdsa import SigningKey, SECP256k1 #elliptic curve cryptography package
+import base58 #for encoding addresses & WIF
 
 #bip 39 wordlist
 bip39_words = pd.read_csv("english.txt")
@@ -188,21 +189,42 @@ def find_seed(words, passphrase):
 def hmac_sha512(key, data):
     return hmac.new(key, data, hashlib.sha512).digest()
 
+#base58 encoding for address & WIF
+def base58_encode(data):
+    return base58.b58encode(data)
+
 #finds extended private key w/ chain code
 def ext_master_priv(root_seed):
     data = bytes.fromhex(root_seed)
     
-    key = "426974636f696e2073656564" #"Bitcoin seed" in hex
+    key = "426974636f696e2073656564" #"Bitcoin seed" in hex as salt
     key = bytes.fromhex(key)
     
     #derive master private key
     ext_priv_key = hmac_sha512(key, data)
+    ext_priv_key = ext_priv_key.hex()
+    
+    
+    #WIF formatting for private key
+    private_key_bytes = bytes.fromhex(ext_priv_key[:64])
+    prefix = b'\x80' #mainet == "80"
+    extended_key = prefix + private_key_bytes
+    extended_key += b'\x01' #compression == True
 
-    return ext_priv_key.hex()
+    #checksum
+    sha256_1 = hashlib.sha256(extended_key).digest()
+    sha256_2 = hashlib.sha256(sha256_1).digest()
+    checksum = sha256_2[:4]
+
+    #calculating WIF w/ Base58
+    final_key = extended_key + checksum
+    WIF = base58_encode(final_key).decode('utf-8')
+    
+    return ext_priv_key, WIF
 
 
 #prints all results with all private key values already found
-def print_priv_results(entropy_256, checksum, words, root_seed, ext_priv_key):
+def print_priv_results(entropy_256, checksum, words, root_seed, ext_priv_key, master_chain_code, WIF):
     print("\n\n\t\t\t\t\t\tPrinting Results...\n")
     print(f"Binary entropy: {entropy_256}\n")
     print(f"Checksum: {checksum}\n")
@@ -213,13 +235,14 @@ def print_priv_results(entropy_256, checksum, words, root_seed, ext_priv_key):
         i += 1
     print(f"\nMaster root seed: {root_seed}")
     print(f"\nExtended private key: {ext_priv_key}")
+    print(f"\nWIF: {WIF}")
     print(f"\nMaster private key: {ext_priv_key[:64]}")
-    print(f"\nMaster chain code: {ext_priv_key[64:]}")
+    print(f"\nMaster chain code: {master_chain_code}")
         
         
 #selection for private key execution options
 def private_key_selection():
-    global entropy_256, checksum, words, ext_priv_key
+    global entropy_256, checksum, words, ext_priv_key, master_chain_code
     
     print("\n\t\t\t\t_______PRIVATE KEY WINDOW_______\n")
     print("To create or recover wallet, enter entropy in binary or enter seed phrase")
@@ -241,15 +264,17 @@ def private_key_selection():
     if selection_main == 1:
         entropy_256, passphrase = enter_256_bits() #gathers binary
         words, checksum = calc_words_from_bin(entropy_256) #calculates words
-        root_seed = find_seed(words, passphrase)
-        ext_priv_key = ext_master_priv(root_seed)
-        print_priv_results(entropy_256, checksum, words, root_seed, ext_priv_key) #prints results
+        root_seed = find_seed(words, passphrase) #calculates root seed
+        ext_priv_key, WIF = ext_master_priv(root_seed) # calculates ext priv key
+        master_chain_code = ext_priv_key[64:] #calculates chain code
+        print_priv_results(entropy_256, checksum, words, root_seed, ext_priv_key, master_chain_code, WIF) #prints results
     elif selection_main == 2:
         words, passphrase = enter_words() #gathers 24 word phrase
         entropy_256, checksum = calc_bin_from_words(words) #calculates binary
-        root_seed = find_seed(words, passphrase)
-        ext_priv_key = ext_master_priv(root_seed)
-        print_priv_results(entropy_256, checksum, words, root_seed, ext_priv_key) #prints results
+        root_seed = find_seed(words, passphrase) #calculates root seed
+        ext_priv_key, WIF = ext_master_priv(root_seed) #calculates ext priv key
+        master_chain_code = ext_priv_key[64:] #calculates chain code
+        print_priv_results(entropy_256, checksum, words, root_seed, ext_priv_key, master_chain_code, WIF) #prints results
     elif selection_main == 3:
         try:    
             print_priv_results(entropy_256, checksum, words, root_seed, master_priv_key)
@@ -312,19 +337,51 @@ def public_key_results(uncompress_pub_key, compress_pub_key, x, y, ext_public_ke
 #public key selection window
 def public_key_calculation():
     global ext_public_key
+    global master_chain_code
     
     print("\n\t\t\t\t_______PUBLIC KEY WINDOW_______\n")
-    if entropy_256 == '':
-        print("You must enter private keys first")
-        return private_key_selection()
     
     #calculating all results
     uncompress_pub_key, compress_pub_key, x, y = ext_master_pub(ext_priv_key)
-    ext_public_key = compress_pub_key + ext_priv_key[64:]
+    
+    ext_public_key = compress_pub_key + master_chain_code
     
     #printing all results
     public_key_results(uncompress_pub_key, compress_pub_key, x, y, ext_public_key)
     
+#address calculation as hardened version starting from index 0
+#this calculates addresses and keys to children in an unsafe manner
+#calculates address from private key, so would be hardened if large enough index is selected
+'''
+def address_calculation():
+    #calculates and prints zpriv, zpub, & address
+    print("\n\n\t\t\t\t\t\tPrinting Address information...\n")
+    
+    address_array = pd.DataFrame({"index": [], "zpriv": [], "zpub": [], "address": []})
+    
+    i = 0
+    while i < 5:
+        address_array.loc[i, "index"] = i
+        print(f"{i}.) ")
+        
+        #find zpriv for child
+        zpriv = 
+        address_array.loc[i, "zpriv"] = zpriv
+        print(f"zpriv: {zpriv}")
+        
+        #find zpub for child
+        zpub = 
+        address_array.loc[i, "zpub"] = zpub
+        print(f"zpub: {zpub}")
+        
+        #find address for child
+        address = 
+        address_array.loc[i, "address"] = address
+        
+        
+        
+        i = i + 1
+'''
     
 #main function with initial decisions
 def main():
@@ -333,16 +390,21 @@ def main():
         print("Enter a private key first\n")
         print("1. Enter & view private keys")
         print("2. Enter to view public keys and addresses")
-        print("3. Enter to view ALL private & public information")
+        print("3. Enter to view child address information")
         print("4. Exit program\n")
         main_selection = input("Selection number -> ")
         
         if main_selection == "1":
             private_key_selection()
         elif main_selection == "2":
-            public_key_calculation()
+            if NameError:
+                print("\nYou must enter private keys first")
+                continue
         elif main_selection == "3":
-            print("All information later")                ##################prints all information
+            if NameError:
+                print("\nYou must enter private & publuc keys first")
+                continue
+            address_calculation()
         elif main_selection == "4":
             exit_function()
         else:
