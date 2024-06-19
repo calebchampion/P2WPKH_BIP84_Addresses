@@ -352,20 +352,20 @@ def public_key_calculation():
     #master fingerprint  sha256 hash pub, then ripemd160
     compress_pub_key_bytes = bytes.fromhex(compress_pub_key)
     sha256_hash = hashlib.sha256(compress_pub_key_bytes).digest()
-    ripemd160 = hashlib.new('ripemd160')
-    ripemd160.update(sha256_hash)
-    ripemd160_hash = ripemd160.digest()
-    master_fingerprint = ripemd160_hash[:4].hex() #take first 4 bytes, then convert to hex
+    ripemd160 = ripemd160_algo(sha256_hash)
+    
+    master_fingerprint = ripemd160[:8] #take first 4 bytes
     
     #go to results
     public_key_results(uncompress_pub_key, compress_pub_key, x, y)
     
 #RIPEMD160 hash results
-def ripemd160(data):
-    sha = hashlib.new('ripemd160')
-    sha.update(hashlib.sha256(data).digest())
+def ripemd160_algo(data):
+    ripemd160 = hashlib.new('ripemd160')
+    ripemd160.update(data)
+    ripemd160_hash = ripemd160.digest()
     
-    return sha.digest()
+    return ripemd160_hash.hex()
 
 #bech32 hash from string ripmd160 to get address format
 def bech32_encoding(ripemd160_hash):
@@ -409,6 +409,8 @@ def address_calculation():
         ripemd160_hash = ripemd160(pub)
         address = bech32_encoding(ripemd160_hash)
         address_array.loc[i, "address"] = address
+        print(f"address: {address}\n")
+        
         
         i = i + 1
 '''
