@@ -103,7 +103,8 @@ def calc_words_from_bin(entropy_256):
     words = [0] * 24
   
     #checksum
-    hexstr = "{0:0>4X}".format(int(entropy_256, 2))
+    hexstr = "{0:0>4X}".format(int(entropy_256, 2)) #formating
+    hexstr = "0" + hexstr if len(hexstr) % 2 != 0 else hexstr #if its odd add a 0
     data = binascii.a2b_hex(hexstr) #hexadecimal to binary data
     hash_hex = sha256(data) # SHA-256 hashing
     hash_bin = bin(int(hash_hex, 16))[2:] #convert the hexadecimal hash to binary
@@ -228,7 +229,7 @@ def ext_master_priv(root_seed):
     return ext_priv_key, WIF
 
 #prints all results with all private key values already found
-def print_priv_results(root_seed, WIF):
+def print_priv_results():
     print("\n\n\t\t\t\t\t\tPrinting Results...\n")
     print(f"Binary entropy: {entropy_256}\n")
     print(f"Checksum: {checksum}\n")
@@ -246,7 +247,7 @@ def print_priv_results(root_seed, WIF):
         
 #selection for private key execution options
 def private_key_selection():
-    global entropy_256, checksum, words, ext_priv_key, master_chain_code
+    global entropy_256, checksum, words, ext_priv_key, master_chain_code, root_seed, WIF
     
     print("\n\t\t\t\t_______PRIVATE KEY WINDOW_______\n")
     print("To create or recover wallet, enter entropy in binary or enter seed phrase")
@@ -271,17 +272,17 @@ def private_key_selection():
         root_seed = find_seed(words, passphrase) #calculates root seed
         ext_priv_key, WIF = ext_master_priv(root_seed) # calculates ext priv key
         master_chain_code = ext_priv_key[64:] #calculates chain code
-        print_priv_results(root_seed, WIF) #prints results
+        print_priv_results() #prints results
     elif selection_main == 2:
         words, passphrase = enter_words() #gathers 24 word phrase
         entropy_256, checksum = calc_bin_from_words(words) #calculates binary
         root_seed = find_seed(words, passphrase) #calculates root seed
         ext_priv_key, WIF = ext_master_priv(root_seed) #calculates ext priv key
         master_chain_code = ext_priv_key[64:] #calculates chain code
-        print_priv_results(root_seed, WIF) #prints results
+        print_priv_results() #prints results
     elif selection_main == 3:
-        try:    
-            print_priv_results(root_seed, WIF)
+        try: 
+            print_priv_results() 
         except NameError: #none of the values are supplied
             print("\nYou must enter private keys first\n")
     elif selection_main == 4:
@@ -333,9 +334,9 @@ def ext_master_pub():
 #print the public key results
 def public_key_results(uncompress_pub_key, compress_pub_key, x, y):
     print("\n\n\t\t\t\t\t\tPrinting Results...\n")
-    print(f"Master public key (uncompressed): {uncompress_pub_key}")
+    print(f"Master fingerprint: {master_fingerprint}")
+    print(f"\nMaster public key (uncompressed): {uncompress_pub_key}")
     print(f"\nMaster public key (compressed): {compress_pub_key}")
-    print(f"\nMaster fingerprint: {master_fingerprint}")
     print(f"\nExtended public key: {ext_public_key}")
     print(f"\nCoordinates = x: {x}\n\t\t\t  y: {y}")
 
@@ -381,7 +382,6 @@ def bech32_encoding(ripemd160_hash):
     
     return bech32_address
     
-
 #address calculation as hardened version starting from index 0
 #this calculates addresses and keys to children in an unsafe manner
 #calculates address from private key, so would be hardened if large enough index is selected
