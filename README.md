@@ -1,4 +1,4 @@
-# Address Explorer
+# Address calculator
 ## Understanding bitcoin addresses in the P2WPKH form
 1. Creates or uses **BIP39 seed phrase** from 256 bit entropy, or other way around.
 2. Calculates 64 byte **root seed** with 2048 iterations of PBKDF2-HMAC-SHA512 using seed phrase and salt for (**passphrase**).
@@ -19,3 +19,4 @@ Some packages are already included in pip if download is recent enough.
     $ pip install binascii
     $ pip install ecdsa
     $ pip install base58
+    $ pip install bech32

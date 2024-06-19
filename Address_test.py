@@ -15,6 +15,7 @@ import hmac #for HMAC hash of root_seed -> ext priv key
 import binascii #for converting
 from ecdsa import SigningKey, SECP256k1 #elliptic curve cryptography package
 import base58 #for encoding addresses & WIF
+import bech32 #for encoding in bech32 for addresses
 
 #bip 39 wordlist
 bip39_words = pd.read_csv("english.txt")
@@ -93,14 +94,19 @@ def clear_keys():
     
     return entropy_256, words, checksum, ext_priv_key
 
+#sha256 hash function used for multiple things
+def sha256(data):
+    return hashlib.sha256(data).hexdigest()
+
 #calculate 24 root_seed phrase from 256 bits of entropy
 def calc_words_from_bin(entropy_256):
     words = [0] * 24
   
     #checksum
-    hexstr = "{0:0>4X}".format(int(entropy_256, 2))
+    hexstr = "{0:0>4X}".format(int(entropy_256, 2)) #formating
+    hexstr = "0" + hexstr if len(hexstr) % 2 != 0 else hexstr #if its odd add a 0
     data = binascii.a2b_hex(hexstr) #hexadecimal to binary data
-    hash_hex = hashlib.sha256(data).hexdigest() # SHA-256 hashing
+    hash_hex = sha256(data) # SHA-256 hashing
     hash_bin = bin(int(hash_hex, 16))[2:] #convert the hexadecimal hash to binary
 
     #Ensure the binary string matches the original length
@@ -169,7 +175,6 @@ def find_seed(words, passphrase):
     iterations = 2048
     length = 64
     
-    
     if passphrase == "None": #without passphrase
         salt = "mnemonic"
         words_string = " ".join(words)
@@ -197,7 +202,7 @@ def base58_encode(data):
 def ext_master_priv(root_seed):
     data = bytes.fromhex(root_seed)
     
-    key = "426974636f696e2073656564" #"Bitcoin seed" in hex as salt
+    key = "426974636f696e2073656564" #"Bitcoin seed" in hex version as salt
     key = bytes.fromhex(key)
     
     #derive master private key
@@ -222,9 +227,8 @@ def ext_master_priv(root_seed):
     
     return ext_priv_key, WIF
 
-
 #prints all results with all private key values already found
-def print_priv_results(entropy_256, checksum, words, root_seed, ext_priv_key, master_chain_code, WIF):
+def print_priv_results():
     print("\n\n\t\t\t\t\t\tPrinting Results...\n")
     print(f"Binary entropy: {entropy_256}\n")
     print(f"Checksum: {checksum}\n")
@@ -242,7 +246,7 @@ def print_priv_results(entropy_256, checksum, words, root_seed, ext_priv_key, ma
         
 #selection for private key execution options
 def private_key_selection():
-    global entropy_256, checksum, words, ext_priv_key, master_chain_code
+    global entropy_256, checksum, words, ext_priv_key, master_chain_code, root_seed, WIF
     
     print("\n\t\t\t\t_______PRIVATE KEY WINDOW_______\n")
     print("To create or recover wallet, enter entropy in binary or enter seed phrase")
@@ -267,17 +271,17 @@ def private_key_selection():
         root_seed = find_seed(words, passphrase) #calculates root seed
         ext_priv_key, WIF = ext_master_priv(root_seed) # calculates ext priv key
         master_chain_code = ext_priv_key[64:] #calculates chain code
-        print_priv_results(entropy_256, checksum, words, root_seed, ext_priv_key, master_chain_code, WIF) #prints results
+        print_priv_results() #prints results
     elif selection_main == 2:
         words, passphrase = enter_words() #gathers 24 word phrase
         entropy_256, checksum = calc_bin_from_words(words) #calculates binary
         root_seed = find_seed(words, passphrase) #calculates root seed
         ext_priv_key, WIF = ext_master_priv(root_seed) #calculates ext priv key
         master_chain_code = ext_priv_key[64:] #calculates chain code
-        print_priv_results(entropy_256, checksum, words, root_seed, ext_priv_key, master_chain_code, WIF) #prints results
+        print_priv_results() #prints results
     elif selection_main == 3:
-        try:    
-            print_priv_results(entropy_256, checksum, words, root_seed, master_priv_key)
+        try: 
+            print_priv_results() 
         except NameError: #none of the values are supplied
             print("\nYou must enter private keys first\n")
     elif selection_main == 4:
@@ -301,7 +305,7 @@ def ecdsa(priv_key):
     return private_key.get_verifying_key()
 
 #calculate extended public key with ecdsa
-def ext_master_pub(ext_priv_key):
+def ext_master_pub():
     #calculate priv key from master_priv_key
     priv_key = ext_priv_key[:64]
     
@@ -327,69 +331,96 @@ def ext_master_pub(ext_priv_key):
     return uncompress_pub_key, compress_pub_key, x, y
 
 #print the public key results
-def public_key_results(uncompress_pub_key, compress_pub_key, x, y, ext_public_key):
+def public_key_results(uncompress_pub_key, compress_pub_key, x, y):
     print("\n\n\t\t\t\t\t\tPrinting Results...\n")
-    print(f"Master public key (uncompressed): {uncompress_pub_key}")
+    print(f"Master fingerprint: {master_fingerprint}")
+    print(f"\nMaster public key (uncompressed): {uncompress_pub_key}")
     print(f"\nMaster public key (compressed): {compress_pub_key}")
     print(f"\nExtended public key: {ext_public_key}")
     print(f"\nCoordinates = x: {x}\n\t\t\t  y: {y}")
 
 #public key selection window
 def public_key_calculation():
-    global ext_public_key
-    global master_chain_code
+    global ext_public_key, master_chain_code, master_fingerprint
     
     print("\n\t\t\t\t_______PUBLIC KEY WINDOW_______\n")
     
     #calculating all results
-    uncompress_pub_key, compress_pub_key, x, y = ext_master_pub(ext_priv_key)
+    uncompress_pub_key, compress_pub_key, x, y = ext_master_pub() #ecdsa
+    ext_public_key = compress_pub_key + master_chain_code #ext pub key
     
-    ext_public_key = compress_pub_key + master_chain_code
+    #master fingerprint  sha256 hash pub, then ripemd160
+    compress_pub_key_bytes = bytes.fromhex(compress_pub_key)
+    sha256_hash = hashlib.sha256(compress_pub_key_bytes).digest()
+    ripemd160 = ripemd160_algo(sha256_hash)
     
-    #printing all results
-    public_key_results(uncompress_pub_key, compress_pub_key, x, y, ext_public_key)
+    master_fingerprint = ripemd160[:8] #take first 4 bytes
+    
+    #go to results
+    public_key_results(uncompress_pub_key, compress_pub_key, x, y)
+    
+#RIPEMD160 hash results
+def ripemd160_algo(data):
+    ripemd160 = hashlib.new('ripemd160')
+    ripemd160.update(data)
+    ripemd160_hash = ripemd160.digest()
+    
+    return ripemd160_hash.hex()
+
+#bech32 hash from string ripmd160 to get address format
+def bech32_encoding(ripemd160_hash):
+    ripemd160_hash = bytes.fromhex(ripemd160_hash)
+    version = 0  # Version for P2WPKH is 0
+    witness_program = list(ripemd160_hash)
+    data = [version] + bech32.convertbits(witness_program, 8, 5)
+    bech32_address = bech32.bech32_encode("bc", data)
+    
+    return bech32_address
     
 #address calculation as hardened version starting from index 0
 #this calculates addresses and keys to children in an unsafe manner
 #calculates address from private key, so would be hardened if large enough index is selected
 '''
 def address_calculation():
+    global address_array
+    
     #calculates and prints zpriv, zpub, & address
     print("\n\n\t\t\t\t\t\tPrinting Address information...\n")
     
-    address_array = pd.DataFrame({"index": [], "zpriv": [], "zpub": [], "address": []})
+    #create address array of priv, pub, and addresses
+    address_array = pd.DataFrame({"index": [], "priv": [], "pub": [], "address": []})
     
     i = 0
     while i < 5:
         address_array.loc[i, "index"] = i
         print(f"{i}.) ")
         
-        #find zpriv for child
-        zpriv = 
-        address_array.loc[i, "zpriv"] = zpriv
-        print(f"zpriv: {zpriv}")
+        #find priv for child
+        priv = 
+        address_array.loc[i, "priv"] = zpriv
+        print(f"priv: {priv}")
         
-        #find zpub for child
-        zpub = 
-        address_array.loc[i, "zpub"] = zpub
-        print(f"zpub: {zpub}")
+        #find pub for child
+        pub = 
+        address_array.loc[i, "pub"] = zpub
+        print(f"pub: {pub}")
         
         #find address for child
-        address = 
+        ripemd160_hash = ripemd160(pub)
+        address = bech32_encoding(ripemd160_hash)
         address_array.loc[i, "address"] = address
-        
+        print(f"address: {address}\n")
         
         
         i = i + 1
 '''
-    
 #main function with initial decisions
 def main():
     while True:
         print("\n\t\t\t\t_______MAIN WINDOW________")
         print("Enter a private key first\n")
         print("1. Enter & view private keys")
-        print("2. Enter to view public keys and addresses")
+        print("2. Enter to view public keys")
         print("3. Enter to view child address information")
         print("4. Exit program\n")
         main_selection = input("Selection number -> ")
@@ -397,14 +428,15 @@ def main():
         if main_selection == "1":
             private_key_selection()
         elif main_selection == "2":
-            if NameError:
+            try:
+                public_key_calculation()
+            except NameError: #none of the values are supplied
                 print("\nYou must enter private keys first")
-                continue
         elif main_selection == "3":
-            if NameError:
-                print("\nYou must enter private & publuc keys first")
-                continue
-            address_calculation()
+            try:
+                address_calculation()
+            except NameError:
+                print("\nYou must enter private & public keys first")
         elif main_selection == "4":
             exit_function()
         else:
