@@ -19,3 +19,4 @@ Some packages are already included in pip if download is recent enough.
     $ pip install binascii
     $ pip install ecdsa
     $ pip install base58
+    $ pip install bech32
