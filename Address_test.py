@@ -175,7 +175,6 @@ def find_seed(words, passphrase):
     iterations = 2048
     length = 64
     
-    
     if passphrase == "None": #without passphrase
         salt = "mnemonic"
         words_string = " ".join(words)
@@ -351,19 +350,15 @@ def public_key_calculation():
     ext_public_key = compress_pub_key + master_chain_code #ext pub key
     
     #master fingerprint  sha256 hash pub, then ripemd160
-    input_bytes = compress_pub_key.encode('utf-8') #sha256
-    hash_object = hashlib.sha256()
-    hash_object.update(input_bytes)
-    hash_of_pub = hash_object.hexdigest()
+    compress_pub_key_bytes = bytes.fromhex(compress_pub_key)
+    sha256_hash = hashlib.sha256(compress_pub_key_bytes).digest()
+    ripemd160 = hashlib.new('ripemd160')
+    ripemd160.update(sha256_hash)
+    ripemd160_hash = ripemd160.digest()
+    master_fingerprint = ripemd160_hash[:4].hex() #take first 4 bytes, then convert to hex
     
-    hash_bytes = bytes.fromhex(hash_of_pub) #ripmd160
-    ripemd_hash = ripemd160(hash_bytes)
-    
-    master_fingerprint = ripemd_hash.hex()[:8] #first 4 bytes
-    
-    #printing all results
+    #go to results
     public_key_results(uncompress_pub_key, compress_pub_key, x, y)
-
     
 #RIPEMD160 hash results
 def ripemd160(data):
