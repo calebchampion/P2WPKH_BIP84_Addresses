@@ -45,3 +45,5 @@ https://developer.bitcoin.org/devguide/index.html
 https://armantheparman.com/
 
 https://learnmeabitcoin.com/
+
+https://www.youtube.com/@specter163/videos  "Build your own Bitcoin hardware wallet videos"
