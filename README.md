@@ -41,3 +41,7 @@ https://bitcoiner.guide/seed/
 https://privatekeys.pw/calc
 
 https://developer.bitcoin.org/devguide/index.html
+
+https://armantheparman.com/
+
+https://learnmeabitcoin.com/
