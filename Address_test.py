@@ -21,6 +21,9 @@ import bech32 #for encoding in bech32 for addresses
 bip39_words = pd.read_csv("english.txt")
 bip39_words['index'] = range(len(bip39_words))
 
+#for ecdsa tracking
+j = 0
+
 #exit all programs function
 def exit_function():
     print("\nExiting the program")
@@ -206,8 +209,7 @@ def ext_master_priv(root_seed):
     key = bytes.fromhex(key)
     
     #derive master private key
-    ext_priv_key = hmac_sha512(key, data)
-    ext_priv_key = ext_priv_key.hex()
+    ext_priv_key = hmac_sha512(key, data).hex()
     
     
     #WIF formatting for private key
@@ -219,7 +221,7 @@ def ext_master_priv(root_seed):
     #checksum
     sha256_1 = hashlib.sha256(extended_key).digest()
     sha256_2 = hashlib.sha256(sha256_1).digest()
-    checksum = sha256_2[:4]
+    checksum = sha256_2[:4] 
 
     #calculating WIF w/ Base58
     final_key = extended_key + checksum
@@ -301,6 +303,16 @@ def ecdsa(priv_key):
     # Create a SigningKey object from the private key bytes
     private_key = SigningKey.from_string(private_key_bytes, curve=SECP256k1)
     
+    
+    global j
+    if j == 0: # on only the first run
+        #get order of curve
+        global n
+        curve = private_key.curve
+        n = curve.order
+    
+    j = j + 1
+    
     # Get the corresponding VerifyingKey (which contains the public key)
     return private_key.get_verifying_key()
 
@@ -380,7 +392,7 @@ def bech32_encoding(ripemd160_hash):
 #address calculation as hardened version starting from index 0
 #this calculates addresses and keys to children in an unsafe manner
 #calculates address from private key, so would be hardened if large enough index is selected
-'''
+
 def address_calculation():
     global address_array
     
@@ -391,29 +403,51 @@ def address_calculation():
     address_array = pd.DataFrame({"index": [], "priv": [], "pub": [], "address": []})
     
     i = 0
-    while i < 5:
+    while i < 6:
         address_array.loc[i, "index"] = i
-        print(f"{i}.) ")
         
-        #find priv for child
-        priv = 
-        address_array.loc[i, "priv"] = zpriv
-        print(f"priv: {priv}")
+        #PRIVATE KEY
+        data = ext_priv_key[:32] + str(i) #data (mast priv key + index)
+        data = data.encode("utf-8") #encode in bytes
+        key = master_chain_code.encode("utf-8") #incode in bytes
+        hmac_result = hmac_sha512(data, key)[:32] #hmac(master priv + index, master chain code)
+        hmac_result = int.from_bytes(hmac_result, byteorder='big') #in int format
+        master_priv = int(ext_priv_key[:64], 16) #in int format
+        priv = (master_priv + hmac_result) % n #(master priv + hmac_result) % n(order of curve)
+        priv = str(hex(priv)[2:])
+        address_array.loc[i, "priv"] = priv
         
-        #find pub for child
-        pub = 
-        address_array.loc[i, "pub"] = zpub
-        print(f"pub: {pub}")
         
-        #find address for child
-        ripemd160_hash = ripemd160(pub)
+        #PUBLIC KEY
+        public_key = ecdsa(priv)
+        public_key_hex = public_key.to_string().hex() #pub key
+        
+        public_key_point = public_key.pubkey.point #points on graph
+        y = public_key_point.y()
+        
+        #uncompressed is always prefixed w/ '04', compressed is '02' if even & '03' odd
+        uncompress_pub_key = "04" + public_key_hex #uncompressed version 
+        
+        if y % 2 == 0: #even
+            pub = "02" + uncompress_pub_key[2:66] #compressed version (just x cord needed)
+        elif y % 2 != 0: #odd
+            pub = "03" + uncompress_pub_key[2:66]
+            
+        
+        address_array.loc[i, "pub"] = str(pub)
+        
+        
+        #ADDRESS
+        pub = pub.encode("utf-8")
+        ripemd160_hash = ripemd160_algo(pub)
         address = bech32_encoding(ripemd160_hash)
-        address_array.loc[i, "address"] = address
-        print(f"address: {address}\n")
+        address_array.loc[i, "address"] = str(address)
         
+        #printing results
+        print(f"{i}.) priv: {priv}, pub: {pub}, address: {address}\n")
         
         i = i + 1
-'''
+
 #main function with initial decisions
 def main():
     while True:
@@ -426,12 +460,12 @@ def main():
         main_selection = input("Selection number -> ")
         
         if main_selection == "1":
-            private_key_selection()
-        elif main_selection == "2":
-            try:
-                public_key_calculation()
-            except NameError: #none of the values are supplied
+            try: 
+                private_key_selection()
+            except NameError:
                 print("\nYou must enter private keys first")
+        elif main_selection == "2":
+            public_key_calculation()
         elif main_selection == "3":
             try:
                 address_calculation()
