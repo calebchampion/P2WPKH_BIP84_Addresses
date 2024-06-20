@@ -20,3 +20,24 @@ Some packages are already included in pip if download is recent enough.
     $ pip install ecdsa
     $ pip install base58
     $ pip install bech32
+
+#### Sources used to understand everything
+"Mastering Bitcoin: Programming the Open Blockchain" Andreas Antonopoulos
+
+"Programming Bitcoin" Jimmy Song, https://github.com/jimmysong/programmingbitcoin
+
+https://learn.saylor.org/  "CS120 Bitcoin for Developers"
+
+https://cypherpunks-core.github.io/bitcoinbook/
+
+https://bip32jp.github.io/english/
+
+https://iancoleman.io/bip39/
+
+https://bitaps.com/bip32
+
+https://bitcoiner.guide/seed/
+
+https://privatekeys.pw/calc
+
+https://developer.bitcoin.org/devguide/index.html
