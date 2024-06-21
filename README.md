@@ -5,8 +5,7 @@
 3. Uses HMAC-SHA512 to hash the root seed to calulate the 64 byte **parent extended private key(master extended private key)** by adding the first 32 bytes **master private key** and the last 32 bytes **master chain code** from the HMAC-SHA512 hash to be used for the BIP32 Hierarchical Deterministic children keys later.  The chain code will be used to construct the child keys.
 4. Use Base58 encoding to convert **master private key** -> **WIF** #this only encodes it in an easy format, can be easily undone.
 5. Used the **master private key** and ECDSA to solve for the compressed (& uncompressed) **master public key**, then adding that with the chain code to calculate the **parent extended public key(master extended public key)**.
-6. Create private, public, and addresses for **child addresses** for **hardened** & **normal**
-**Need to describe how child addresses & priv keys are made**
+6. Create **child private keys for** by the hardened format for non hardened and hardened indexes. (This is obviously not ideal for non-hardened indexes, but it doesn't matter for me)  First HMAC-SHA512 the 
 
 ### Directions
 Need to download "english" file as it is the bip39 wordlist used for conversion.  Just change "english" to the file path and name.
