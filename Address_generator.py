@@ -389,10 +389,20 @@ def bech32_encoding(ripemd160_hash):
     
     return bech32_address
     
-#address calculation as hardened version starting from index 0
-#this calculates addresses and keys to children in an unsafe manner
-#calculates address from private key, so would be hardened if large enough index is selected
+#child key derivation
+def CKD(i):
+    data = ext_priv_key[:32] + str(i) #data (mast priv key + index)
+    data = data.encode("utf-8") #encode in bytes
+    key = master_chain_code.encode("utf-8") #incode in bytes
+    hmac_result = hmac_sha512(data, key)[:32] #hmac(master priv + index, master chain code)
+    hmac_result = int.from_bytes(hmac_result, byteorder='big') #in int format
+    master_priv = int(ext_priv_key[:64], 16) #in int format
+    priv = (master_priv + hmac_result) % n #(master priv + hmac_result) % n(order of curve)
+    priv = str(hex(priv)[2:])
+    
+    return priv
 
+#address calculation from index 0
 def address_calculation():
     global address_array
     
@@ -403,20 +413,13 @@ def address_calculation():
     address_array = pd.DataFrame({"index": [], "priv": [], "pub": [], "address": []})
     
     i = 0
-    while i < 6:
+    while i < 5:
         address_array.loc[i, "index"] = i
         
         #PRIVATE KEY
-        data = ext_priv_key[:32] + str(i) #data (mast priv key + index)
-        data = data.encode("utf-8") #encode in bytes
-        key = master_chain_code.encode("utf-8") #incode in bytes
-        hmac_result = hmac_sha512(data, key)[:32] #hmac(master priv + index, master chain code)
-        hmac_result = int.from_bytes(hmac_result, byteorder='big') #in int format
-        master_priv = int(ext_priv_key[:64], 16) #in int format
-        priv = (master_priv + hmac_result) % n #(master priv + hmac_result) % n(order of curve)
-        priv = str(hex(priv)[2:])
+        priv = CKD(i) #child private key derivation
         address_array.loc[i, "priv"] = priv
-        
+        print(f"priv: {priv}")
         
         #PUBLIC KEY
         public_key = ecdsa(priv)
@@ -432,8 +435,8 @@ def address_calculation():
             pub = "02" + uncompress_pub_key[2:66] #compressed version (just x cord needed)
         elif y % 2 != 0: #odd
             pub = "03" + uncompress_pub_key[2:66]
-            
         
+        print(f"pub: {pub}")
         address_array.loc[i, "pub"] = str(pub)
         
         
@@ -442,9 +445,7 @@ def address_calculation():
         ripemd160_hash = ripemd160_algo(pub)
         address = bech32_encoding(ripemd160_hash)
         address_array.loc[i, "address"] = str(address)
-        
-        #printing results
-        print(f"{i}.) priv: {priv}, pub: {pub}, address: {address}\n")
+        print(f"address: {address}\n")
         
         i = i + 1
 
