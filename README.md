@@ -11,7 +11,7 @@
 9. Last, calculate the addresses of all keys by hashing the child public key with ripemd160(bech32("bc", child public key)) to get it in (bc1q) **P2WPKH address** form.
 
 ### Directions
-Need to download "english" file as it is the bip39 wordlist used for conversion.  Just change "english" to the file path and name.
+Need to download "BIP39_words" file as it is the bip39 wordlist used for conversion.
 
 Some packages are already included in pip if download is recent enough.
 
