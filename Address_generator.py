@@ -18,16 +18,11 @@ import base58 #for encoding addresses & WIF
 import bech32 #for encoding in bech32 for addresses
 
 #bip 39 wordlist
-bip39_words = pd.read_csv("english.txt")
+bip39_words = pd.read_csv("BIP39_english.txt")
 bip39_words['index'] = range(len(bip39_words))
 
-#for ecdsa tracking
-j = 0
-
-#exit all programs function
-def exit_function():
-    print("\nExiting the program")
-    exit()
+#constants
+n = SECP256k1.order #order of secp256k1 curve
   
 #enter 256 bits private key
 def enter_256_bits():
@@ -201,19 +196,9 @@ def hmac_sha512(key, data):
 def base58_encode(data):
     return base58.b58encode(data)
 
-#finds extended private key w/ chain code
-def ext_master_priv(root_seed):
-    data = bytes.fromhex(root_seed)
-    
-    key = "426974636f696e2073656564" #"Bitcoin seed" in hex version as salt
-    key = bytes.fromhex(key)
-    
-    #derive master private key
-    ext_priv_key = hmac_sha512(key, data).hex()
-    
-    
-    #WIF formatting for private key
-    private_key_bytes = bytes.fromhex(ext_priv_key[:64])
+#Wallet import format, Base58 encoded
+def WIF_format(priv_key):
+    private_key_bytes = bytes.fromhex(priv_key[:64])
     prefix = b'\x80' #mainet == "80"
     extended_key = prefix + private_key_bytes
     extended_key += b'\x01' #compression == True
@@ -226,6 +211,22 @@ def ext_master_priv(root_seed):
     #calculating WIF w/ Base58
     final_key = extended_key + checksum
     WIF = base58_encode(final_key).decode('utf-8')
+    
+    return WIF
+
+#finds extended private key w/ chain code
+def ext_master_priv(root_seed):
+    data = bytes.fromhex(root_seed)
+    
+    key = "426974636f696e2073656564" #"Bitcoin seed" in hex version as salt
+    key = bytes.fromhex(key)
+    
+    #derive master private key
+    ext_priv_key = hmac_sha512(key, data).hex()
+    
+    
+    #WIF formatting for private key
+    WIF = WIF_format(ext_priv_key)
     
     return ext_priv_key, WIF
 
@@ -291,27 +292,17 @@ def private_key_selection():
     elif selection_main == 5:
         return main()
     elif selection_main == 6:
-        exit_function()
+        exit()
     else:
         print("\nEntry must be a number 1-5\n")
         private_key_selection()
 
 #ecdsa cryptography
-def ecdsa(priv_key):
-    private_key_bytes = bytes.fromhex(priv_key)
+def ecdsa(priv_key_bytes):
+    
     
     # Create a SigningKey object from the private key bytes
-    private_key = SigningKey.from_string(private_key_bytes, curve=SECP256k1)
-    
-    
-    global j
-    if j == 0: # on only the first run
-        #get order of curve
-        global n
-        curve = private_key.curve
-        n = curve.order
-    
-    j = j + 1
+    private_key = SigningKey.from_string(priv_key_bytes, curve=SECP256k1)
     
     # Get the corresponding VerifyingKey (which contains the public key)
     return private_key.get_verifying_key()
@@ -322,7 +313,8 @@ def ext_master_pub():
     priv_key = ext_priv_key[:64]
     
     #eliptic curve cryptography
-    public_key = ecdsa(priv_key)
+    priv_key_bytes = bytes.fromhex(priv_key)
+    public_key = ecdsa(priv_key_bytes)
     
     #points on graph
     public_key_point = public_key.pubkey.point
@@ -364,7 +356,7 @@ def public_key_calculation():
     #master fingerprint  sha256 hash pub, then ripemd160
     compress_pub_key_bytes = bytes.fromhex(compress_pub_key)
     sha256_hash = hashlib.sha256(compress_pub_key_bytes).digest()
-    ripemd160 = ripemd160_algo(sha256_hash)
+    ripemd160 = ripemd160_algo(sha256_hash).hex()
     
     master_fingerprint = ripemd160[:8] #take first 4 bytes
     
@@ -373,81 +365,125 @@ def public_key_calculation():
     
 #RIPEMD160 hash results
 def ripemd160_algo(data):
-    ripemd160 = hashlib.new('ripemd160')
+    ripemd160 = hashlib.new("ripemd160")
     ripemd160.update(data)
     ripemd160_hash = ripemd160.digest()
     
-    return ripemd160_hash.hex()
+    return ripemd160_hash
 
 #bech32 hash from string ripmd160 to get address format
-def bech32_encoding(ripemd160_hash):
-    ripemd160_hash = bytes.fromhex(ripemd160_hash)
+def bech32_encoding(pub_key_bytes):
+    sha256_hash = hashlib.sha256(pub_key_bytes).digest()
+    ripemd160_hash = ripemd160_algo(sha256_hash)
     version = 0  # Version for P2WPKH is 0
     witness_program = list(ripemd160_hash)
     data = [version] + bech32.convertbits(witness_program, 8, 5)
     bech32_address = bech32.bech32_encode("bc", data)
-    
     return bech32_address
+
     
-#child key derivation
-def CKD(i):
-    data = ext_priv_key[:32] + str(i) #data (mast priv key + index)
-    data = data.encode("utf-8") #encode in bytes
-    key = master_chain_code.encode("utf-8") #incode in bytes
-    hmac_result = hmac_sha512(data, key)[:32] #hmac(master priv + index, master chain code)
-    hmac_result = int.from_bytes(hmac_result, byteorder='big') #in int format
-    master_priv = int(ext_priv_key[:64], 16) #in int format
-    priv = (master_priv + hmac_result) % n #(master priv + hmac_result) % n(order of curve)
-    priv = str(hex(priv)[2:])
+#child key derivation 
+def CKD(priv_key, chain_code, index, hardened = False):
+    if hardened:
+        data = bytes(priv_key) + index.to_bytes(4, "big")
     
-    return priv
+    else:
+        priv_key = bytes(priv_key)
+        vk = ecdsa(priv_key)
+        pub_key = vk.to_string("compressed")
+        data = pub_key + index.to_bytes(4, "big")
+
+    hmac_result = hmac_sha512(data, chain_code)
+    priv = int.from_bytes(hmac_result[:32], "big")
+    chain_code = hmac_result[32:]
+    
+    new_priv = (int.from_bytes(priv_key, "big") + priv) % n
+    new_priv_bytes = new_priv.to_bytes(32, "big")
+    
+    return new_priv_bytes, chain_code
+
+def derive_bip84_key(master_priv_key, master_chain_code, index, hardened):   
+    #derive m/84'
+    priv_key, chain_code = CKD(master_priv_key, master_chain_code, 84, hardened = True)
+    #derive m/84'/0'
+    priv_key, chain_code = CKD(priv_key, chain_code, 0, hardened = True)
+    #derive m/84'/0'/0'
+    priv_key, chain_code = CKD(priv_key, chain_code, 0, hardened = True)
+    #derive m/84'/0'/0'/0
+    priv_key, chain_code = CKD(priv_key, chain_code, 0)
+    
+    #calculate if hardened or not
+    if hardened == False:
+        # Derive m/84'/0'/0'/0/index
+        priv_key, chain_code = CKD(priv_key, chain_code, index)
+    elif hardened == True:
+        #derive m/84'/0'/0'/0/index'
+        priv_key, chain_code = CKD(priv_key, chain_code, index, hardened = True)
+        
+        
+    return priv_key
 
 #address calculation from index 0
 def address_calculation():
-    global address_array
+    address_array = pd.DataFrame(columns=["index", "priv", "pub", "address"])
     
-    #calculates and prints zpriv, zpub, & address
-    print("\n\n\t\t\t\t\t\tPrinting Address information...\n")
+    print("\n\n\t\t\t\t\t\tPrinting Address information...\nUnhardened")
     
-    #create address array of priv, pub, and addresses
-    address_array = pd.DataFrame({"index": [], "priv": [], "pub": [], "address": []})
+    master_priv_key = bytes.fromhex(ext_priv_key[:64])
+    master_chain_code_bytes = bytes.fromhex(master_chain_code)
     
-    i = 0
-    while i < 5:
+    for i in range(5):
         address_array.loc[i, "index"] = i
+        print(f"Index: {i}")
         
-        #PRIVATE KEY
-        priv = CKD(i) #child private key derivation
-        address_array.loc[i, "priv"] = priv
-        print(f"priv: {priv}")
+        # PRIVATE KEY
+        priv_key_bytes = derive_bip84_key(master_priv_key, master_chain_code_bytes, i, hardened = False)
+        priv_hex = priv_key_bytes.hex()
+        address_array.loc[i, "priv"] = priv_hex
+        print(f"priv: {priv_hex}")
+        wif = WIF_format(priv_hex)
+        print(f"WIF: {wif}")
         
-        #PUBLIC KEY
-        public_key = ecdsa(priv)
-        public_key_hex = public_key.to_string().hex() #pub key
+        # PUBLIC KEY
+        public_key = ecdsa(priv_key_bytes)
+        public_key_bytes = public_key.to_string("compressed")
+        pub_key_hex = public_key_bytes.hex()
         
-        public_key_point = public_key.pubkey.point #points on graph
-        y = public_key_point.y()
+        print(f"pub: {pub_key_hex}")
+        address_array.loc[i, "pub"] = pub_key_hex
         
-        #uncompressed is always prefixed w/ '04', compressed is '02' if even & '03' odd
-        uncompress_pub_key = "04" + public_key_hex #uncompressed version 
-        
-        if y % 2 == 0: #even
-            pub = "02" + uncompress_pub_key[2:66] #compressed version (just x cord needed)
-        elif y % 2 != 0: #odd
-            pub = "03" + uncompress_pub_key[2:66]
-        
-        print(f"pub: {pub}")
-        address_array.loc[i, "pub"] = str(pub)
-        
-        
-        #ADDRESS
-        pub = pub.encode("utf-8")
-        ripemd160_hash = ripemd160_algo(pub)
-        address = bech32_encoding(ripemd160_hash)
-        address_array.loc[i, "address"] = str(address)
+        # ADDRESS
+        address = bech32_encoding(public_key_bytes)
+        address_array.loc[i, "address"] = address
         print(f"address: {address}\n")
         
-        i = i + 1
+    print("\nHardened Addresses: ")
+    for i in range(2147483648, 2147483652): #hardened indexes
+        address_array.loc[i, "index"] = i
+        print(f"Index: {i}")
+        
+        #PRIVATE KEY
+        priv_key_bytes = derive_bip84_key(master_priv_key, master_chain_code_bytes, i, hardened = True)
+        priv_hex = priv_key_bytes.hex()
+        address_array.loc[i, "priv"] = priv_hex
+        print(f"priv: {priv_hex}")
+        wif = WIF_format(priv_hex)
+        print(f"WIF: {wif}")
+        
+        # PUBLIC KEY
+        public_key = ecdsa(priv_key_bytes)
+        public_key_bytes = public_key.to_string("compressed")
+        pub_key_hex = public_key_bytes.hex()
+        
+        print(f"pub: {pub_key_hex}")
+        address_array.loc[i, "pub"] = pub_key_hex
+        
+        # ADDRESS
+        address = bech32_encoding(public_key_bytes)
+        address_array.loc[i, "address"] = address
+        print(f"address: {address}\n")
+        
+    
 
 #main function with initial decisions
 def main():
@@ -466,17 +502,21 @@ def main():
             except NameError:
                 print("\nYou must enter private keys first")
         elif main_selection == "2":
-            public_key_calculation()
+            try:
+                public_key_calculation()
+            except NameError:
+                print("\nYou must enter private keys first")
         elif main_selection == "3":
             try:
                 address_calculation()
             except NameError:
                 print("\nYou must enter private & public keys first")
         elif main_selection == "4":
-            exit_function()
+            exit()
         else:
             print("\nSelection needs to be a 1, 2, or 3\n\n")
             main()
             
-#runnimg main function
-main()
+#running main function
+if __name__ == '__main__':
+    main()
