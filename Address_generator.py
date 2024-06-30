@@ -24,7 +24,7 @@ bip39_words['index'] = range(len(bip39_words))
 #constants
 n = SECP256k1.order #order of secp256k1 curve
   
-#enter 256 bits private key
+#enter 256 bits private key with passphrase
 def enter_256_bits():
     #to catch non integer values entered or a value not enetered
     while True:
@@ -47,10 +47,10 @@ def enter_256_bits():
 
     return str(entropy_bits), passphrase
             
-#enter 24 word root_seed phrase
+#enter 24 word seed phrase with passphrase
 def enter_words():
     print("\nType 'Exit' any any time to exit mack to main\nType 'Back' at any time to go back to private key window\n")
-    print("Enter 24 word root_seed phrase")
+    print("Enter 24 word seed phrase")
     words = []
     
     i = 0;
@@ -75,13 +75,45 @@ def enter_words():
         else:
             print("\nWord is not in BIP39 wordlist, try again")
     
-    
     #adding a passphrase, in PBKDF2 use 'None' to calculate without a phrase later
     passphrase = str(input("\nAdd a passphrase?\nType 'None' if you don't want a passphrase -> "))
                 
     #returns wordlist
     return words, passphrase
     
+#enter hex private key with passphrase
+def enter_hex():
+    print("\nType 'Exit' any any time to exit mack to main\nType 'Back' at any time to go back to private key window\n")
+    while True:
+        try:
+            hex_priv = str(input("Enter 64 characters of hex entropy -> "))
+            #going back
+            if hex_priv == "Back":
+                print("\nExiting and returning to private key window\n\n")
+                return private_key_selection()
+            elif hex_priv == "Exit":
+                print("\nExiting and returning to main\n\n")
+                return main()
+                
+            #making sure it's 64 digits
+            if len(hex_priv) != 64:
+                print("\nHex string must be 64 characters long, try again\n\n")
+            else:
+                break
+            
+        except ValueError:
+            print("\nSomething went wrong, try again")
+            
+    #changing to entropy_256 variable
+    int_value = int(hex_priv, 16)
+    binary_string = bin(int_value)[2:]
+    entropy_256 = binary_string.zfill(256)
+    
+    #adding a passphrase, in PBKDF2 use 'None' to calculate without a phrase later
+    passphrase = str(input("\nAdd a passphrase?\nType 'None' if you don't want a passphrase -> "))
+    
+    return entropy_256, passphrase, hex_priv
+
 #clears and updates all private keys to nothing
 def clear_keys():
     entropy_256 = None
@@ -164,6 +196,12 @@ def calc_bin_from_words(words):
     
     return entropy_256, checksum
 
+def calc_hex_from_bin():
+    integer_value = int(entropy_256, 2)
+    hex_priv = hex(integer_value)[2:].zfill(64)
+    
+    return hex_priv
+
 #PBKDF2 function used for root seed
 def PBKDF2(words_bytes, salt_bytes, iterations, length):
     return hashlib.pbkdf2_hmac("sha512", words_bytes, salt_bytes, iterations, length).hex()
@@ -231,10 +269,11 @@ def ext_master_priv(root_seed):
     return ext_priv_key, WIF
 
 #prints all results with all private key values already found
-def print_priv_results():
+def print_priv_results(hex_priv):
     print("\n\n\t\t\t\t\t\tPrinting Results...\n")
     print(f"Binary entropy: {entropy_256}\n")
     print(f"Checksum: {checksum}\n")
+    print(f"Hex entropy: {hex_priv}\n")
     print("Seed phrase:")
     i = 1
     for item in words:
@@ -254,11 +293,12 @@ def private_key_selection():
     print("\n\t\t\t\t_______PRIVATE KEY WINDOW_______\n")
     print("To create or recover wallet, enter entropy in binary or enter seed phrase")
     print("1. Enter 256 bits of entropy")
-    print("2. Enter 24 words root_seed phrase")
-    print("3. To print all private keys")
-    print("4. Enter to clear all private keys stored")
-    print("5. To go back to main menu")
-    print("6. To exit all programs\n")
+    print("2. Enter 64 characters of hex entropy")
+    print("3. Enter 24 words root_seed phrase")
+    print("4. To print all private keys")
+    print("5. Enter to clear all private keys stored")
+    print("6. To go back to main menu")
+    print("7. To exit all programs\n")
     
     #error handling
     while True:
@@ -268,31 +308,47 @@ def private_key_selection():
         except ValueError:
             print("\nMust enter an integer, try again\n")
     #selection choices & calculations with printing to follow
-    if selection_main == 1:
-        entropy_256, passphrase = enter_256_bits() #gathers binary
+    if selection_main == 1: #entered 256 bits
+        entropy_256, passphrase = enter_256_bits() #gathers binary & passphrase
+        hex_priv = calc_hex_from_bin() #calculates hex from binary
         words, checksum = calc_words_from_bin(entropy_256) #calculates words
         root_seed = find_seed(words, passphrase) #calculates root seed
         ext_priv_key, WIF = ext_master_priv(root_seed) # calculates ext priv key
         master_chain_code = ext_priv_key[64:] #calculates chain code
-        print_priv_results() #prints results
-    elif selection_main == 2:
-        words, passphrase = enter_words() #gathers 24 word phrase
+        print_priv_results(hex_priv) #prints results
+        
+    elif selection_main == 2: #entered hex
+        entropy_256, passphrase, hex_priv = enter_hex() #gathers hex & passphrase
+        words, checksum = calc_words_from_bin(entropy_256) #calculates words
+        root_seed = find_seed(words, passphrase) #calculates root seed
+        ext_priv_key, WIF = ext_master_priv(root_seed) # calculates ext priv key
+        master_chain_code = ext_priv_key[64:] #calculates chain code
+        print_priv_results(hex_priv) #prints results
+        
+    elif selection_main == 3: #entered 24 words
+        words, passphrase = enter_words() #gathers 24 word phrase & passphrase
         entropy_256, checksum = calc_bin_from_words(words) #calculates binary
+        hex_priv = calc_hex_from_bin() #calculates hex from binary
         root_seed = find_seed(words, passphrase) #calculates root seed
         ext_priv_key, WIF = ext_master_priv(root_seed) #calculates ext priv key
         master_chain_code = ext_priv_key[64:] #calculates chain code
-        print_priv_results() #prints results
-    elif selection_main == 3:
+        print_priv_results(hex_priv) #prints results
+        
+    elif selection_main == 4:
         try: 
             print_priv_results() 
         except NameError: #none of the values are supplied
             print("\nYou must enter private keys first\n")
-    elif selection_main == 4:
-        entropy_256, checksum, words, ext_priv_key = clear_keys()
+            
     elif selection_main == 5:
-        return main()
+        entropy_256, checksum, words, ext_priv_key = clear_keys()
+        
     elif selection_main == 6:
+        return main()
+    
+    elif selection_main == 7:
         exit()
+        
     else:
         print("\nEntry must be a number 1-5\n")
         private_key_selection()
