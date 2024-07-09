@@ -21,7 +21,6 @@ import bech32 #for encoding in bech32 for addresses
 bip39_words = pd.read_csv("BIP39_english.txt")
 bip39_words['index'] = range(len(bip39_words))
 
-#constants
 n = SECP256k1.order #order of secp256k1 curve
   
 #enter 256 bits private key with passphrase
@@ -30,6 +29,7 @@ def enter_256_bits():
     while True:
         try:
             entropy_bits = str(input("\nType 0 to go back to main\nType 1 to go back\n\nDo not include spaces\nEnter 256 bits -> "))
+            print(len(entropy_bits))
             break
         except ValueError:
             print("\nValues can only be integers or no value entered")
@@ -256,8 +256,7 @@ def WIF_format(priv_key):
 def ext_master_priv(root_seed):
     data = bytes.fromhex(root_seed)
     
-    key = "426974636f696e2073656564" #"Bitcoin seed" in hex version as salt
-    key = bytes.fromhex(key)
+    key = b"Bitcoin seed" #key in byte form for hmac
     
     #derive master private key
     ext_priv_key = hmac_sha512(key, data).hex()
@@ -437,7 +436,6 @@ def bech32_encoding(pub_key_bytes):
     bech32_address = bech32.bech32_encode("bc", data)
     return bech32_address
 
-    
 #child key derivation 
 def CKD(priv_key, chain_code, index, hardened = False):
     if hardened:
@@ -458,23 +456,24 @@ def CKD(priv_key, chain_code, index, hardened = False):
     
     return new_priv_bytes, chain_code
 
+#child derivations
 def derive_bip84_key(master_priv_key, master_chain_code, index, hardened):   
     #derive m/84'
-    priv_key, chain_code = CKD(master_priv_key, master_chain_code, 84, hardened = True)
+    priv_key, chain_code = CKD(master_priv_key, master_chain_code, 84, hardened = True) #84' hardened = 84 + 2147483648
     #derive m/84'/0'
-    priv_key, chain_code = CKD(priv_key, chain_code, 0, hardened = True)
+    priv_key, chain_code = CKD(priv_key, chain_code, 0, hardened = True) #0' hardened coin type == Bitcoin
     #derive m/84'/0'/0'
-    priv_key, chain_code = CKD(priv_key, chain_code, 0, hardened = True)
+    priv_key, chain_code = CKD(priv_key, chain_code, 0, hardened = True) #0' hardened account = 0
     #derive m/84'/0'/0'/0
-    priv_key, chain_code = CKD(priv_key, chain_code, 0)
+    priv_key, chain_code = CKD(priv_key, chain_code, 0) #0 receiving address = 0
     
     #calculate if hardened or not
     if hardened == False:
         # Derive m/84'/0'/0'/0/index
-        priv_key, chain_code = CKD(priv_key, chain_code, index)
+        priv_key, chain_code = CKD(priv_key, chain_code, index) #index of address
     elif hardened == True:
         #derive m/84'/0'/0'/0/index'
-        priv_key, chain_code = CKD(priv_key, chain_code, index, hardened = True)
+        priv_key, chain_code = CKD(priv_key, chain_code, index, hardened = True) #index of hardened address
         
         
     return priv_key
