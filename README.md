@@ -23,7 +23,7 @@ Some packages are already included in pip if download is recent enough.
     $ pip install base58
     $ pip install bech32
 
-#### Sources used to understand everything
+#### Sources
 "Mastering Bitcoin: Programming the Open Blockchain" Andreas Antonopoulos
 
 "Programming Bitcoin" Jimmy Song, https://github.com/jimmysong/programmingbitcoin
