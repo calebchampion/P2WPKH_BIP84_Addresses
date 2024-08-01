@@ -29,7 +29,6 @@ def enter_256_bits():
     while True:
         try:
             entropy_bits = str(input("\nType 0 to go back to main\nType 1 to go back\n\nDo not include spaces\nEnter 256 bits -> "))
-            print(len(entropy_bits))
             break
         except ValueError:
             print("\nValues can only be integers or no value entered")
@@ -46,7 +45,7 @@ def enter_256_bits():
     passphrase = str(input("\nAdd a passphrase?\nType 'None' if you don't want a passphrase -> "))
 
     return str(entropy_bits), passphrase
-            
+
 #enter 24 word seed phrase with passphrase
 def enter_words():
     print("\nType 'Exit' any any time to exit mack to main\nType 'Back' at any time to go back to private key window\n")
@@ -75,11 +74,36 @@ def enter_words():
         else:
             print("\nWord is not in BIP39 wordlist, try again")
     
+    #make sure checksum for last word is correct
+    check_words(words)
+    
     #adding a passphrase, in PBKDF2 use 'None' to calculate without a phrase later
     passphrase = str(input("\nAdd a passphrase?\nType 'None' if you don't want a passphrase -> "))
                 
     #returns wordlist
     return words, passphrase
+
+#checking to see if words checksum is correct
+def check_words(words): #local words being passed
+    last_word = words[23]
+    
+    #checksum last word
+    x, checksum = calc_bin_from_words(words)
+    checksum_dec = int(checksum, 2)
+    checksum_word = str(bip39_words.loc[bip39_words.index[checksum_dec], "words"])
+    
+    checksum_word = str(bip39_words.loc[bip39_words.index[checksum_dec], "words"])
+    
+    print(last_word)
+    print(checksum_word)
+    
+    #if word is not right vs. if word is right
+    if last_word == checksum_word:
+        return
+    else:
+        print("\nChecksum for last word is not right")
+        return enter_words()
+    
     
 #enter hex private key with passphrase
 def enter_hex():
@@ -310,7 +334,7 @@ def private_key_selection():
     if selection_main == 1: #entered 256 bits
         entropy_256, passphrase = enter_256_bits() #gathers binary & passphrase
         hex_priv = calc_hex_from_bin() #calculates hex from binary
-        words, checksum = calc_words_from_bin(entropy_256) #calculates words
+        words, checksum, = calc_words_from_bin(entropy_256) #calculates words
         root_seed = find_seed(words, passphrase) #calculates root seed
         ext_priv_key, WIF = ext_master_priv(root_seed) # calculates ext priv key
         master_chain_code = ext_priv_key[64:] #calculates chain code
@@ -358,7 +382,7 @@ def ecdsa(priv_key_bytes):
     
     # Create a SigningKey object from the private key bytes
     private_key = SigningKey.from_string(priv_key_bytes, curve=SECP256k1)
-    
+
     # Get the corresponding VerifyingKey (which contains the public key)
     return private_key.get_verifying_key()
 
@@ -468,10 +492,10 @@ def derive_bip84_key(master_priv_key, master_chain_code, index, hardened):
     priv_key, chain_code = CKD(priv_key, chain_code, 0) #0 receiving address = 0
     
     #calculate if hardened or not
-    if hardened == False:
+    if not hardened:
         # Derive m/84'/0'/0'/0/index
         priv_key, chain_code = CKD(priv_key, chain_code, index) #index of address
-    elif hardened == True:
+    else:
         #derive m/84'/0'/0'/0/index'
         priv_key, chain_code = CKD(priv_key, chain_code, index, hardened = True) #index of hardened address
         
