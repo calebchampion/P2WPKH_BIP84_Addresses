@@ -29,7 +29,6 @@ def enter_256_bits():
     while True:
         try:
             entropy_bits = str(input("\nType 0 to go back to main\nType 1 to go back\n\nDo not include spaces\nEnter 256 bits -> "))
-            print(len(entropy_bits))
             break
         except ValueError:
             print("\nValues can only be integers or no value entered")
@@ -46,7 +45,7 @@ def enter_256_bits():
     passphrase = str(input("\nAdd a passphrase?\nType 'None' if you don't want a passphrase -> "))
 
     return str(entropy_bits), passphrase
-            
+
 #enter 24 word seed phrase with passphrase
 def enter_words():
     print("\nType 'Exit' any any time to exit mack to main\nType 'Back' at any time to go back to private key window\n")
@@ -75,11 +74,52 @@ def enter_words():
         else:
             print("\nWord is not in BIP39 wordlist, try again")
     
+    #make sure checksum for last word is correct
+    check_words(words)
+    
     #adding a passphrase, in PBKDF2 use 'None' to calculate without a phrase later
     passphrase = str(input("\nAdd a passphrase?\nType 'None' if you don't want a passphrase -> "))
                 
     #returns wordlist
     return words, passphrase
+
+#checking to see if words checksum is correct
+def check_words(words): #local words being passed
+    last_word = words[23]
+    
+    #checksum last word
+    entropy_264 = str()
+    for word in words:
+        word_dec = int(bip39_words[bip39_words['words'] == word]['index'].values[0]) 
+        word_bin = format(word_dec, '011b') #turn to 11 bit binary format
+        word_bin = str(word_bin)
+        entropy_264 += word_bin
+    
+    checksum_bin = entropy_264[253:]
+    checksum_dec = int(checksum_bin, 2)
+    
+    checksum_word = str(bip39_words.loc[bip39_words.index[checksum_dec], "words"])
+
+    
+    #if word is not right vs. if word is right
+    if last_word != checksum_word:
+        print("\nChecksum for last word is not right")
+        
+        return enter_words()
+    else:
+        return
+    
+    
+#checksum calculator
+def calc_checksum(entry):
+    hexstr = "{0:0>4X}".format(int(entry, 2)) #formating
+    hexstr = "0" + hexstr if len(hexstr) % 2 != 0 else hexstr #if its odd add a 0
+    data = binascii.a2b_hex(hexstr) #hexadecimal to binary data
+    hash_hex = sha256(data) # SHA-256 hashing
+    hash_bin = bin(int(hash_hex, 16))[2:] #convert the hexadecimal hash to binary
+    hash_bin = hash_bin[253:]
+    
+    return hash_bin
     
 #enter hex private key with passphrase
 def enter_hex():
@@ -133,13 +173,9 @@ def calc_words_from_bin(entropy_256):
     words = [0] * 24
   
     #checksum
-    hexstr = "{0:0>4X}".format(int(entropy_256, 2)) #formating
-    hexstr = "0" + hexstr if len(hexstr) % 2 != 0 else hexstr #if its odd add a 0
-    data = binascii.a2b_hex(hexstr) #hexadecimal to binary data
-    hash_hex = sha256(data) # SHA-256 hashing
-    hash_bin = bin(int(hash_hex, 16))[2:] #convert the hexadecimal hash to binary
+    hash_bin = calc_checksum(entropy_256)
 
-    #Ensure the binary string matches the original length
+    #ensure the binary string matches the original length
     #SHA-256 produces a 256-bit (32-byte) hash, so it needs to be trimmed to the length of entropy_256
     bin_digest = hash_bin.zfill(len(entropy_256))[:len(entropy_256)]
     
@@ -149,7 +185,7 @@ def calc_words_from_bin(entropy_256):
     #full 264 bits for 24 words
     entropy_264 = str(str(entropy_256) + checksum)
     
-    #last 24 bits for 24th word
+    #last 11 bits for 24th word
     checksum_bin = entropy_264[253:]
     
     #turn to int so its workable with % & //
@@ -174,7 +210,7 @@ def calc_words_from_bin(entropy_256):
     checksum_word = str(bip39_words.loc[bip39_words.index[checksum_dec], "words"])
     words[23] = checksum_word
     
-    if TypeError: #pesky typeerror when already finished running, might actually fix later 
+    if TypeError:
         None
     
     return words, checksum
@@ -293,7 +329,7 @@ def private_key_selection():
     print("To create or recover wallet, enter entropy in binary or enter seed phrase")
     print("1. Enter 256 bits of entropy")
     print("2. Enter 64 characters of hex entropy")
-    print("3. Enter 24 words root_seed phrase")
+    print("3. Enter 24 words seed phrase")
     print("4. To print all private keys")
     print("5. Enter to clear all private keys stored")
     print("6. To go back to main menu")
@@ -306,11 +342,12 @@ def private_key_selection():
             break
         except ValueError:
             print("\nMust enter an integer, try again\n")
+            
     #selection choices & calculations with printing to follow
     if selection_main == 1: #entered 256 bits
         entropy_256, passphrase = enter_256_bits() #gathers binary & passphrase
         hex_priv = calc_hex_from_bin() #calculates hex from binary
-        words, checksum = calc_words_from_bin(entropy_256) #calculates words
+        words, checksum, = calc_words_from_bin(entropy_256) #calculates words
         root_seed = find_seed(words, passphrase) #calculates root seed
         ext_priv_key, WIF = ext_master_priv(root_seed) # calculates ext priv key
         master_chain_code = ext_priv_key[64:] #calculates chain code
@@ -358,7 +395,7 @@ def ecdsa(priv_key_bytes):
     
     # Create a SigningKey object from the private key bytes
     private_key = SigningKey.from_string(priv_key_bytes, curve=SECP256k1)
-    
+
     # Get the corresponding VerifyingKey (which contains the public key)
     return private_key.get_verifying_key()
 
@@ -439,16 +476,16 @@ def bech32_encoding(pub_key_bytes):
 #child key derivation 
 def CKD(priv_key, chain_code, index, hardened = False):
     if hardened:
-        data = bytes(priv_key) + index.to_bytes(4, "big")
+        data = b"\x00" + bytes(priv_key) + index.to_bytes(4, "big")
     
     else:
         priv_key = bytes(priv_key)
         vk = ecdsa(priv_key)
         pub_key = vk.to_string("compressed")
-        data = pub_key + index.to_bytes(4, "big")
+        data = pub_key + index.to_bytes(4, byteorder = "big")
 
     hmac_result = hmac_sha512(data, chain_code)
-    priv = int.from_bytes(hmac_result[:32], "big")
+    priv = int.from_bytes(hmac_result[:32], byteorder = "big")
     chain_code = hmac_result[32:]
     
     new_priv = (int.from_bytes(priv_key, "big") + priv) % n
@@ -468,10 +505,10 @@ def derive_bip84_key(master_priv_key, master_chain_code, index, hardened):
     priv_key, chain_code = CKD(priv_key, chain_code, 0) #0 receiving address = 0
     
     #calculate if hardened or not
-    if hardened == False:
+    if not hardened:
         # Derive m/84'/0'/0'/0/index
         priv_key, chain_code = CKD(priv_key, chain_code, index) #index of address
-    elif hardened == True:
+    else:
         #derive m/84'/0'/0'/0/index'
         priv_key, chain_code = CKD(priv_key, chain_code, index, hardened = True) #index of hardened address
         
