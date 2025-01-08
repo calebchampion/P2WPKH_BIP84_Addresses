@@ -102,10 +102,12 @@ def check_words(words): #local words being passed
 
     
     #if word is not right vs. if word is right
-    while last_word != checksum_word:
+    if last_word != checksum_word:
         print("\nChecksum for last word is not right")
         
         return enter_words()
+    else:
+        return
     
     
 #checksum calculator
@@ -208,7 +210,7 @@ def calc_words_from_bin(entropy_256):
     checksum_word = str(bip39_words.loc[bip39_words.index[checksum_dec], "words"])
     words[23] = checksum_word
     
-    if TypeError: #pesky typeerror when already finished running, might actually fix later 
+    if TypeError:
         None
     
     return words, checksum
